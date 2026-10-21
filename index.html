@@ -991,7 +991,7 @@ function renderHome(){
   const fab=$("fab");fab.textContent="+ إضافة طالب";fab.dataset.act="addStudent";fab.style.display="";
   if(view.wd===undefined)view.wd=new Date(today()+"T00:00:00").getDay();
   view.woff=view.woff||0;
-  $("hd").innerHTML=`<h1>حلقة التحفيظ<span class="sub">${esc(db.hname)}</span></h1>`;
+  $("hd").innerHTML=`<h1>حلقة التحفيظ<span class="sub">${esc(db.hname)}</span></h1><button class="hbtn" data-act="backup">نسخ احتياطي</button>`;
   const wd=view.wd,D=dayDate(wd);
   const strip=`<div class="wks">${WDN.map((n,i)=>`<button class="wk ${i===wd?"on":""}" data-act="wd" data-w="${i}">${n}</button>`).join("")}</div>`;
   const nav=`<div class="acts" style="margin:0 0 10px"><button class="btn sec2" data-act="wkPrev">الأسبوع السابق</button><button class="btn sec2" data-act="wkNow">اليوم</button><button class="btn sec2" data-act="wkNext">الأسبوع التالي</button></div>`;
@@ -1077,6 +1077,63 @@ document.addEventListener("click",e=>{
   else if(a==="wkNow"){view.woff=0;view.wd=new Date(today()+"T00:00:00").getDay();render()}
   else if(a==="allList"){view.all=!view.all;render()}
   else if(a==="recFor"){view.sid=t.dataset.id;view.wdDate=dayDate(view.wd);logForm(null)}
+});
+
+
+// ===== تصدير بطاقات طلاب محددين =====
+renderCards=function(){
+  $("fab").style.display="none";
+  if(!view.cardSel)view.cardSel=[];
+  const sel=new Set(view.cardSel);
+  $("hd").innerHTML=`<button class="hbtn" data-act="back" aria-label="رجوع">→</button><h1>تصدير البطاقات<span class="sub">محدد: ${sel.size} من ${db.students.length}</span></h1>`;
+  const rows=db.students.map(s=>`<div class="row" data-act="cpTog" data-id="${s.id}"><input type="checkbox" ${sel.has(s.id)?"checked":""} tabindex="-1" style="width:22px;height:22px;min-height:0;flex:none;pointer-events:none"><div class="grow"><div class="name">${esc(s.name)}</div></div></div>`).join("");
+  $("app").innerHTML=`<div class="note">اختر الطلاب بالنقر على أسمائهم، أو اختر عشوائياً، ثم اضغط «إنشاء الصفحات». كل صفحة A4 فيها حتى 8 بطاقات.</div>
+   <div class="acts" style="margin:0 0 10px"><button class="btn" data-act="cpRand">اختيار عشوائي</button><input id="cpn" type="number" inputmode="numeric" min="1" max="100" value="${view.cpn||8}" style="max-width:90px;min-height:50px;text-align:center"></div>
+   <div class="acts" style="margin:0 0 12px"><button class="btn sec2" data-act="cpAll">تحديد الكل</button><button class="btn sec2" data-act="cpNone">إلغاء التحديد</button></div>
+   ${rows||`<div class="empty"><b>لا يوجد طلاب بعد</b>أضف طلاباً أولاً.</div>`}
+   <div class="acts" style="margin-top:12px"><button class="btn" data-act="cpMake" ${sel.size?"":"disabled"}>إنشاء الصفحات (${sel.size})</button></div>
+   <div id="pacts"></div><div id="pg"></div>`;
+};
+function cpSetSel(ids){view.cardSel=db.students.filter(s=>ids.includes(s.id)).map(s=>s.id)}
+async function makeCardPages(){
+  const list=db.students.filter(s=>view.cardSel.includes(s.id));
+  if(!list.length)return;
+  const box=$("pg");$("pacts").innerHTML="";
+  box.className="note";box.style.textAlign="center";box.textContent="جارٍ تجهيز الصفحات…";
+  const pages=[];
+  for(let i=0;i<list.length;i+=8){
+    const pc=document.createElement("canvas");pc.width=1654;pc.height=2339;
+    const px=pc.getContext("2d");px.fillStyle="#fff";px.fillRect(0,0,1654,2339);
+    const chunk=list.slice(i,i+8);
+    for(let k=0;k<chunk.length;k++){
+      const cc=await cardImg("id",chunk[k]);
+      px.drawImage(cc,167+(k%2)*680,84+Math.floor(k/2)*550,640,520);
+    }
+    pages.push(pc);
+  }
+  if(view.page!=="cards")return;
+  view.pcv=pages;view.gcv=pages;
+  box.className="";box.style.textAlign="";
+  box.innerHTML=pages.map((c,i)=>`<img src="${c.toDataURL("image/jpeg",.92)}" alt="صفحة ${i+1}" style="width:100%;border:1px solid var(--line);border-radius:8px;margin-bottom:12px;display:block">`).join("");
+  $("pacts").innerHTML=`<div class="acts" style="margin:0 0 12px"><button class="btn" data-act="printPages">طباعة A4 أو حفظ PDF</button><button class="btn sec2" data-act="dlPages">تنزيل الصور</button><button class="btn sec2" data-act="shareG">مشاركة إلى واتساب</button></div>`;
+}
+function dlPages(){
+  (view.pcv||[]).forEach((c,i)=>{const a=document.createElement("a");a.href=c.toDataURL("image/png");a.download=`halaqa-cards-${i+1}.png`;document.body.appendChild(a);a.click();a.remove()});
+}
+document.addEventListener("click",e=>{
+  const t=e.target.closest&&e.target.closest("[data-act]");if(!t||view.page!=="cards")return;
+  const a=t.dataset.act;
+  if(a==="cpTog"){const id=t.dataset.id,cur=new Set(view.cardSel||[]);cur.has(id)?cur.delete(id):cur.add(id);cpSetSel([...cur]);renderCards()}
+  else if(a==="cpAll"){cpSetSel(db.students.map(s=>s.id));renderCards()}
+  else if(a==="cpNone"){view.cardSel=[];renderCards()}
+  else if(a==="cpRand"){
+    const n=Math.max(1,Math.min(100,parseInt(($("cpn")||{}).value,10)||8));
+    view.cpn=n;
+    const ids=db.students.map(s=>s.id).sort(()=>Math.random()-.5).slice(0,n);
+    cpSetSel(ids);renderCards();
+  }
+  else if(a==="cpMake")makeCardPages();
+  else if(a==="dlPages")dlPages();
 });
 
 if(!openReport())render();
