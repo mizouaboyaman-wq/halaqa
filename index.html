@@ -103,6 +103,14 @@ a.btn{display:grid;place-items:center;text-decoration:none}
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="الحلقة">
+<style>#printArea{display:none}@media print{body>*:not(#printArea){display:none!important}#printArea{display:block}#printArea img{display:block;width:210mm;height:297mm;object-fit:contain;break-after:page;page-break-after:always}@page{size:A4;margin:0}}</style>
+<style>.wks{display:flex;gap:6px;overflow-x:auto;margin-bottom:10px;padding-bottom:4px}.wk{flex:0 0 auto;border:2px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:8px 11px;font:inherit;font-size:14px;cursor:pointer}.wk.on,.dchip.on{background:var(--pri);color:#fff;border-color:transparent;font-weight:700}.dchips{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}.dchip{border:2px solid var(--line);background:var(--bg);color:var(--ink);border-radius:10px;padding:9px 12px;font:inherit;font-size:14px;cursor:pointer}input[readonly]{opacity:.7}</style>
 </head>
 <body>
 <header id="hd"></header>
@@ -219,6 +227,7 @@ document.addEventListener("click",e=>{
   else if(a==="gper"){view.gp=t.dataset.p;render()}
   else if(a==="copyG"){const x=$("gt");x.select();x.setSelectionRange(0,99999999);let ok=false;try{ok=document.execCommand("copy")}catch(e){}$("er").textContent=ok?"تم النسخ.":"حُدّد النص، اضغط عليه مطولاً ثم انسخ.";$("er").style.color=ok?"var(--g1)":""}
   else if(a==="shareG")shareG();
+  else if(a==="printPages")printPages();
   else if(a==="queue"){view={page:"queue",sid:null,date:view.date||today()};render();scrollTo(0,0)}
   else if(a==="peers"){view={page:"peers",sid:null,date:view.date||today()};render();scrollTo(0,0)}
   else if(a==="heard"){const s=byId(id);s.hd=[...new Set([...(s.hd||[]),view.date])];save();render()}
@@ -243,6 +252,12 @@ document.addEventListener("click",e=>{
     save();closeSheet();render();
   }
   else if(a==="delExam"){if(confirm("حذف هذا الاختبار؟")){const s=student();s.exams=(s.exams||[]).filter(x=>x.id!==id);save();render()}}
+  else if(a==="repLink")repLinkSheet(student(),+t.dataset.days);
+  else if(a==="install"){if(installEv){installEv.prompt();installEv=null;render()}}
+  else if(a==="photo")photoSheet("user");
+  else if(a==="flipCam")photoSheet(t.dataset.f);
+  else if(a==="snap")snapPhoto();
+  else if(a==="cardBack"){stopScan();cardSheet(student(),"id")}
   else if(a==="quick")quickSheet();
   else if(a==="quickGo")quickGo();
   else if(a==="snapPick"){const i=$("qimg");if(i)i.click()}
@@ -442,6 +457,7 @@ function reportSheet(s,days){
    <div class="acts" style="margin:0 0 10px"><button class="btn ${days===7?"":"sec2"}" data-act="rep" data-days="7">آخر أسبوع</button><button class="btn ${days===30?"":"sec2"}" data-act="rep" data-days="30">آخر شهر</button></div>
    <textarea id="rt" readonly style="direction:rtl;min-height:220px">${esc(t)}</textarea>
    <div class="err" id="er"></div>
+   <div class="acts" style="margin:0 0 10px"><button class="btn" data-act="repLink" data-days="${days}">رابط تقرير مصوّر للوليّ</button></div>
    <div class="acts"><button class="btn" data-act="copyRep">نسخ</button>${ph?`<a class="btn" target="_blank" rel="noopener" href="https://wa.me/${ph}?text=${encodeURIComponent(t)}">واتساب</a>`:""}<button class="btn sec2" data-act="close">إغلاق</button></div>`);
 }
 document.addEventListener("input",e=>{
@@ -504,7 +520,7 @@ function cardSheet(s,type){
   view.ctype=type;view.cardCanvas=null;
   openSheet(`<h2>بطاقة الطالب</h2>
    <div class="acts" style="margin:0 0 10px"><button class="btn ${type==="ach"?"":"sec2"}" data-act="card" data-type="ach">بطاقة إنجاز</button><button class="btn ${type==="id"?"":"sec2"}" data-act="card" data-type="id">بطاقة تعريف</button></div>
-   <label for="hn">اسم الحلقة</label><input id="hn" type="text" maxlength="50" value="${esc(db.hname)}" style="margin-bottom:10px">${type==="id"?`<div style="margin-bottom:10px"><label for="pf">صورة الطالب (اختياري، أو اترك المربع فارغاً للصق الصورة)</label><input id="pf" type="file" accept="image/*">${s.photo?`<button class="lnk del" data-act="delPhoto">حذف الصورة</button>`:""}</div>`:""}
+   <label for="hn">اسم الحلقة</label><input id="hn" type="text" maxlength="50" value="${esc(db.hname)}" style="margin-bottom:10px">${type==="id"?`<div style="margin-bottom:10px"><label for="pf">صورة الطالب (اختياري، أو اترك المربع فارغاً للصق الصورة)</label><input id="pf" type="file" accept="image/*"><button class="lnk" data-act="photo">التقاط بالكاميرا</button>${s.photo?`<button class="lnk del" data-act="delPhoto">حذف الصورة</button>`:""}</div>`:""}
    <div id="cardbox" class="note" style="text-align:center">جارٍ تجهيز البطاقة…</div>
    <div class="note">اضغط مطولاً على البطاقة واحفظها كصورة، ثم أرسلها أو اطبعها.</div>
    <div class="err" id="er"></div>
@@ -559,7 +575,7 @@ async function idBody(x,s,F,W){
   x.textAlign="center";x.font=F("700",26);x.fillStyle=MUTE;x.fillText("امسح الرمز لتسجيل الحضور",545,565);
 }
 let scan=null;
-function stopScan(){if(scan){scan.on=false;if(scan.stream)scan.stream.getTracks().forEach(t=>t.stop());scan=null}}
+function stopScan(){if(pcam){pcam.getTracks().forEach(t=>t.stop());pcam=null}if(scan){scan.on=false;if(scan.stream)scan.stream.getTracks().forEach(t=>t.stop());scan=null}}
 function markP(s){const d=(db.att[view.date]=db.att[view.date]||{});d[s.id]="p";save()}
 async function scanSheet(){
   openSheet(`<h2>مسح بطاقة الحضور</h2>
@@ -603,9 +619,10 @@ function nextLog(s){
   return{...b,fs,fa,ts:fs,ta:fa};
 }
 function homeTop(){
-  if(!db.students.length)return"";
+  const ib=installEv?`<div class="alertbox" style="display:flex;gap:10px;align-items:center"><span style="flex:1">ثبّت التطبيق على هاتفك ليعمل بدون إنترنت.</span><button class="lnk" data-act="install">تثبيت</button></div>`:"";
+  if(!db.students.length)return ib;
   const d=db.lastExport||db.since,old=d&&dAgo(d)>=7;
-  return (old?`<div class="alertbox warn" style="display:flex;gap:10px;align-items:center"><span style="flex:1">${db.lastExport?`مرّ ${dAgo(d)} يوماً على آخر نسخة احتياطية.`:"لم تحفظ نسخة احتياطية بعد."}</span><button class="lnk" data-act="backup">تصدير الآن</button></div>`:"")
+  return ib+(old?`<div class="alertbox warn" style="display:flex;gap:10px;align-items:center"><span style="flex:1">${db.lastExport?`مرّ ${dAgo(d)} يوماً على آخر نسخة احتياطية.`:"لم تحفظ نسخة احتياطية بعد."}</span><button class="lnk" data-act="backup">تصدير الآن</button></div>`:"")
    +`<div class="acts" style="margin:0 0 12px"><button class="btn" data-act="sess">جلسة اليوم</button><button class="btn sec2" data-act="att">الحضور</button><button class="btn sec2" data-act="cardsAll">البطاقات</button></div><div class="acts" style="margin:0 0 12px"><button class="btn" data-act="queue">دور التسميع</button><button class="btn sec2" data-act="peers">الأقران</button><button class="btn sec2" data-act="group">نتائج الحلقة</button></div>`;
 }
 function renderSess(){
@@ -621,8 +638,8 @@ function renderSess(){
 async function renderCards(){
   $("fab").style.display="none";
   $("hd").innerHTML=`<button class="hbtn" data-act="back" aria-label="رجوع">→</button><h1>بطاقات الطلاب<span class="sub">${db.students.length} بطاقة</span></h1>`;
-  $("app").innerHTML=`<div class="note">كل صفحة بحجم A4 وفيها حتى 8 بطاقات. اضغط مطولاً على الصفحة واحفظها كصورة ثم اطبعها، وقصّ البطاقات بعد الطباعة.</div><div id="pg" class="note" style="text-align:center">جارٍ تجهيز الصفحات…</div>`;
-  const tk=view.tk=Math.random(),box=$("pg");
+  $("app").innerHTML=`<div class="note">كل صفحة بحجم A4 وفيها حتى 8 بطاقات. اضغط مطولاً على الصفحة واحفظها كصورة ثم اطبعها، وقصّ البطاقات بعد الطباعة.</div><div id="pacts"></div><div id="pg" class="note" style="text-align:center">جارٍ تجهيز الصفحات…</div>`;
+  const tk=view.tk=Math.random(),box=$("pg");view.pcv=[];
   for(let i=0;i<db.students.length;i+=8){
     const pc=document.createElement("canvas");pc.width=1654;pc.height=2339;
     const px=pc.getContext("2d");px.fillStyle="#fff";px.fillRect(0,0,1654,2339);
@@ -631,6 +648,7 @@ async function renderCards(){
       const cc=await cardImg("id",chunk[k]);
       px.drawImage(cc,167+(k%2)*680,84+Math.floor(k/2)*550,640,520);
     }
+    view.pcv.push(pc);view.gcv=view.pcv;$("pacts").innerHTML='<div class="acts" style="margin:0 0 12px"><button class="btn" data-act="printPages">طباعة A4 أو حفظ PDF</button><button class="btn sec2" data-act="shareG">مشاركة إلى واتساب</button></div>';
     if(view.tk!==tk||view.page!=="cards")return;
     if(i===0){box.className="";box.innerHTML=""}
     box.insertAdjacentHTML("beforeend",`<img src="${pc.toDataURL("image/jpeg",.92)}" alt="صفحة بطاقات" style="width:100%;border:1px solid var(--line);border-radius:8px;margin-bottom:12px;display:block">`);
@@ -797,7 +815,7 @@ async function renderGroup(){
    <div class="acts"><button class="btn" data-act="copyG">نسخ</button><a class="btn" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(txt)}">واتساب</a></div>
    <div class="sec" style="margin-top:16px">النتائج مصوّرة</div>
    <div id="gimgs" class="note" style="text-align:center">جارٍ تجهيز الصور…</div>
-   <div class="acts"><button class="btn sec2" data-act="shareG">مشاركة الصور</button></div>`;
+   <div class="acts"><button class="btn" data-act="printPages">طباعة A4 أو حفظ PDF</button><button class="btn sec2" data-act="shareG">مشاركة الصور</button></div>`;
   const tk=view.tk=Math.random(),cvs=await groupImages(D,p);
   if(view.tk!==tk||view.page!=="group")return;
   view.gcv=cvs;const b=$("gimgs");b.className="";
@@ -865,7 +883,201 @@ function quickGo(){
   i.value="";i.focus();
 }
 document.addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.id==="qn"){e.preventDefault();quickGo()}});
-render();
+let installEv=null,pcam=null;
+const RPV=/^#r=/.test(location.hash);
+addEventListener("beforeinstallprompt",e=>{e.preventDefault();installEv=e;if(!RPV&&view.page==="home")render()});
+addEventListener("appinstalled",()=>{installEv=null;if(!RPV&&view.page==="home")render()});
+if("serviceWorker" in navigator)addEventListener("load",()=>{navigator.serviceWorker.register("sw.js").catch(()=>{})});
+
+async function photoSheet(face){
+  stopScan();
+  openSheet(`<h2>التقاط صورة الطالب</h2>
+   <video id="pv" playsinline muted style="width:100%;border-radius:12px;background:#000;max-height:55vh"></video>
+   <div class="err" id="er"></div>
+   <div class="acts" style="margin-top:10px"><button class="btn" data-act="snap">التقاط</button><button class="btn sec2" data-act="flipCam" data-f="${face==="user"?"environment":"user"}">قلب الكاميرا</button></div>
+   <div class="acts" style="margin-top:10px"><button class="btn sec2" data-act="cardBack">رجوع</button></div>`);
+  try{
+    pcam=await navigator.mediaDevices.getUserMedia({video:{facingMode:face,width:{ideal:1280},height:{ideal:960}}});
+    const v=$("pv");v.srcObject=pcam;await v.play();
+  }catch(e){const x=$("er");if(x)x.textContent="تعذّر تشغيل الكاميرا"+(e&&e.name?" ("+e.name+")":"")+". استخدم «اختيار صورة» من نافذة البطاقة.";}
+}
+function snapPhoto(){
+  const v=$("pv"),s=student();if(!pcam||!v||!v.videoWidth||!s)return;
+  const sw=v.videoWidth,sh=v.videoHeight;let cw=sw,ch=sw*6/5;if(ch>sh){ch=sh;cw=sh*5/6}
+  const c=document.createElement("canvas");c.width=500;c.height=600;
+  c.getContext("2d").drawImage(v,(sw-cw)/2,(sh-ch)/2,cw,ch,0,0,500,600);
+  s.photo=c.toDataURL("image/jpeg",.85);save();stopScan();cardSheet(s,"id");
+}
+
+const b64u=u8=>{let t="";u8.forEach(b=>t+=String.fromCharCode(b));return btoa(t).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"")};
+const unb64u=t=>Uint8Array.from(atob(t.replace(/-/g,"+").replace(/_/g,"/")),c=>c.charCodeAt(0));
+async function packRep(o){
+  const u8=new TextEncoder().encode(JSON.stringify(o));
+  if(typeof CompressionStream!=="undefined"){try{const cs=new Blob([u8]).stream().pipeThrough(new CompressionStream("deflate-raw"));return "z"+b64u(new Uint8Array(await new Response(cs).arrayBuffer()))}catch(e){}}
+  return "j"+b64u(u8);
+}
+async function unpackRep(t){
+  const u8=unb64u(t.slice(1));
+  if(t[0]==="z"){const ds=new Blob([u8]).stream().pipeThrough(new DecompressionStream("deflate-raw"));return JSON.parse(new TextDecoder().decode(new Uint8Array(await new Response(ds).arrayBuffer())))}
+  return JSON.parse(new TextDecoder().decode(u8));
+}
+function repData(s,days){
+  const to=today(),f=addD(to,-(days-1)),c={p:0,l:0,e:0,a:0};
+  for(const d in db.att)if(d>=f&&d<=to&&db.att[d][s.id])c[db.att[d][s.id]]++;
+  const lg=s.logs.filter(l=>l.date>=f&&l.date<=to).sort((a,b)=>a.date.localeCompare(b.date));
+  const rv=[];s.logs.forEach(l=>(l.revs||[]).forEach(v=>{if(v.date>=f&&v.date<=to)rv.push([v.date,shortR(l),v.grade])}));
+  const ex=(s.exams||[]).filter(e=>e.date>=f&&e.date<=to).map(e=>[e.date,e.title,e.score]);
+  const p=progInfo(s);
+  return{v:1,h:db.hname,n:s.name,f,t:to,c:[c.p,c.l,c.e,c.a],l:lg.map(l=>[l.date,shortR(l),l.grade,l.kind==="r"?1:0,l.note||""]),r:rv.sort(),x:ex,nx:s.next||"",pg:p?[p.pct,p.sur,p.ay]:null};
+}
+async function repLinkSheet(s,days){
+  openSheet(`<h2>رابط تقرير مصوّر</h2><div class="note">جارٍ تجهيز الرابط…</div>`);
+  const url=location.href.split("#")[0]+"#r="+await packRep(repData(s,days));
+  const msg=`تقرير ${s.name} — ${db.hname}\n${url}`;
+  openSheet(`<h2>رابط تقرير مصوّر</h2>
+   <div class="note">أرسل الرابط للوليّ فيفتح صفحة تقرير ملوّنة. البيانات داخل الرابط نفسه ولا تُرفع لأي خادم.</div>
+   <textarea id="rt" readonly style="min-height:110px">${esc(url)}</textarea>
+   <div class="err" id="er"></div>
+   <div class="acts"><button class="btn" data-act="copyRep">نسخ الرابط</button><a class="btn" target="_blank" rel="noopener" href="https://wa.me/${s.phone||""}?text=${encodeURIComponent(msg)}">واتساب</a></div>
+   <div class="acts" style="margin-top:10px"><a class="btn sec2" target="_blank" rel="noopener" href="${esc(url)}">معاينة</a><button class="btn sec2" data-act="close">إغلاق</button></div>`);
+}
+function showRep(o){
+  const n=v=>Math.max(0,+v||0),G={"ممتاز":"gr1","جيد جداً":"gr2","جيد":"gr3","إعادة":"gr4"};
+  const sd=x=>new Date(x+"T00:00:00").toLocaleDateString("ar-EG",{day:"numeric",month:"numeric"});
+  const c=(o.c||[0,0,0,0]).map(n),tot=c[0]+c[1]+c[2]+c[3],rate=tot?Math.round((c[0]+c[1])/tot*100):null;
+  document.title="تقرير "+o.n;$("fab").style.display="none";
+  $("hd").innerHTML=`<h1>${esc(o.h)}<span class="sub">تقرير الطالب</span></h1>`;
+  const gc=g=>G[g]||"";
+  $("app").innerHTML=`<div class="row" style="cursor:default"><div class="av">${esc([...String(o.n)][0]||"؟")}</div><div class="grow"><div class="name">${esc(o.n)}</div><div class="meta">من ${sd(o.f)} إلى ${sd(o.t)}</div></div></div>`
+   +(o.pg?`<div class="sec">تقدم الحفظ (تقريبي ${Math.min(100,n(o.pg[0]))}%)</div><div class="bar"><i style="width:${Math.min(100,n(o.pg[0]))}%"></i></div><div class="meta" style="margin:6px 0 14px">وصل إلى سورة ${esc(o.pg[1])} آية ${n(o.pg[2])}</div>`:"")
+   +`<div class="sec">الحضور${rate===null?"":" ("+rate+"%)"}</div><div class="stats">${[["حاضر",0],["متأخر",1],["بعذر",2],["غائب",3]].map(([t,i])=>`<div class="chip"><b>${c[i]}</b><span>${t}</span></div>`).join("")}</div>`
+   +`<div class="sec">الحفظ والتسميع</div>`+((o.l||[]).length?o.l.map(l=>`<div class="log ${gc(l[2])}"><div class="top"><span class="meta">${sd(l[0])} — ${l[3]?"مراجعة":"حفظ جديد"}</span><span class="badge ${gc(l[2])}">${esc(l[2])}</span></div><div class="rng">${esc(l[1])}</div>${l[4]?`<div class="meta">${esc(l[4])}</div>`:""}</div>`).join(""):`<div class="meta" style="margin-bottom:12px">لا يوجد في هذه الفترة.</div>`)
+   +((o.r||[]).length?`<div class="sec">المراجعات</div>`+o.r.map(v=>`<div class="rev"><span>${sd(v[0])} — ${esc(v[1])}</span><span class="badge ${gc(v[2])}">${esc(v[2])}</span></div>`).join(""):"")
+   +((o.x||[]).length?`<div class="sec" style="margin-top:12px">الاختبارات</div>`+o.x.map(e=>`<div class="rev"><span>${sd(e[0])} — ${esc(e[1])}</span><span class="badge ${n(e[2])>=90?"gr1":n(e[2])>=75?"gr2":n(e[2])>=60?"gr3":"gr4"}">${n(e[2])}/100</span></div>`).join(""):"")
+   +(o.nx?`<div class="alertbox warn" style="margin-top:14px">المطلوب للجلسة القادمة: ${esc(o.nx)}</div>`:"");
+}
+function openReport(){
+  const m=location.hash.match(/^#r=([A-Za-z0-9_-]+)$/);if(!m)return false;
+  $("fab").style.display="none";$("app").innerHTML='<div class="empty">جارٍ فتح التقرير…</div>';
+  unpackRep(m[1]).then(showRep).catch(()=>{$("app").innerHTML='<div class="empty"><b>تعذّر فتح التقرير</b>قد يكون الرابط ناقصاً أو المتصفح قديماً.</div>'});
+  return true;
+}
+async function printPages(){
+  const list=(view.page==="cards"?view.pcv:view.gcv)||[];
+  if(!list.length)return;
+  const w=document.createElement("div");w.id="printArea";
+  for(const c of list){const im=new Image();im.src=c.toDataURL("image/png");w.appendChild(im);await im.decode().catch(()=>{})}
+  document.body.appendChild(w);
+  setTimeout(()=>{window.print();setTimeout(()=>w.remove(),1500)},150);
+}
+
+// ===== الجدول الأسبوعي =====
+const WDN=["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"];
+const wkStart=()=>addD(today(),-(new Date(today()+"T00:00:00").getDay())+7*(view.woff||0));
+const dayDate=wd=>addD(wkStart(),wd);
+const studentsOn=wd=>db.students.filter(s=>(s.days||[]).includes(wd));
+const recordedOn=(s,D)=>s.logs.some(l=>l.date===D)||s.logs.some(l=>(l.revs||[]).some(v=>v.date===D));
+const dayNames=s=>(s.days||[]).slice().sort().map(i=>WDN[i]).join("، ")||"بدون يوم محدد";
+
+function remindBox(){
+  const ib=installEv?`<div class="alertbox" style="display:flex;gap:10px;align-items:center"><span style="flex:1">ثبّت التطبيق على هاتفك ليعمل بدون إنترنت.</span><button class="lnk" data-act="install">تثبيت</button></div>`:"";
+  const d=db.lastExport||db.since,old=d&&dAgo(d)>=7;
+  return ib+(old?`<div class="alertbox warn" style="display:flex;gap:10px;align-items:center"><span style="flex:1">${db.lastExport?`مرّ ${dAgo(d)} يوماً على آخر نسخة احتياطية.`:"لم تحفظ نسخة احتياطية بعد."}</span><button class="lnk" data-act="backup">تصدير الآن</button></div>`:"");
+}
+
+function renderHome(){
+  const fab=$("fab");fab.textContent="+ إضافة طالب";fab.dataset.act="addStudent";fab.style.display="";
+  if(view.wd===undefined)view.wd=new Date(today()+"T00:00:00").getDay();
+  view.woff=view.woff||0;
+  $("hd").innerHTML=`<h1>حلقة التحفيظ<span class="sub">${esc(db.hname)}</span></h1>`;
+  const wd=view.wd,D=dayDate(wd);
+  const strip=`<div class="wks">${WDN.map((n,i)=>`<button class="wk ${i===wd?"on":""}" data-act="wd" data-w="${i}">${n}</button>`).join("")}</div>`;
+  const nav=`<div class="acts" style="margin:0 0 10px"><button class="btn sec2" data-act="wkPrev">الأسبوع السابق</button><button class="btn sec2" data-act="wkNow">اليوم</button><button class="btn sec2" data-act="wkNext">الأسبوع التالي</button></div>`;
+  const row=(s,withDay)=>{
+    const last=sortedLogs(s)[0],st=(db.att[D]||{})[s.id];
+    const meta=withDay?(last?"آخر حفظ: "+range(last):"لم يبدأ الحفظ بعد"):dayNames(s);
+    const rec=recordedOn(s,D);
+    const badge=withDay?(rec?`<span class="badge gr1">✓ تم</span>`:`<span class="badge" style="background:var(--pri)">سجّل</span>`):`<span class="meta">حدد أيامه</span>`;
+    return `<div class="row" data-act="${withDay?"recFor":"open"}" data-id="${s.id}"><div class="av">${esc([...s.name][0]||"؟")}</div><div class="grow"><div class="name">${esc(s.name)}</div><div class="meta">${esc(meta)}</div>${(withDay&&st)?`<div class="meta">الحضور: ${ATX[st]}</div>`:""}</div>${badge}</div>`;
+  };
+  let body;
+  if(view.all){
+    body=`<div class="sec">كل الطلاب (${db.students.length})</div>`+(db.students.length?db.students.map(s=>row(s,false)).join(""):`<div class="empty"><b>لا يوجد طلاب بعد</b>اضغط «إضافة طالب».</div>`);
+  }else{
+    const on=studentsOn(wd),none=db.students.filter(s=>!(s.days||[]).length);
+    body=`<div class="sec">${fmtDate(D)} (${on.length})</div>`
+      +(on.length?on.map(s=>row(s,true)).join(""):`<div class="empty"><b>لا يوجد طلاب في هذا اليوم</b>افتح بطاقة الطالب وحدد أيام تسميعه.</div>`)
+      +(none.length?`<div class="sec" style="margin-top:14px">بدون يوم محدد (${none.length})</div>`+none.map(s=>row(s,false)).join(""):"");
+  }
+  $("app").innerHTML=remindBox()+strip+nav+body
+    +`<div class="acts" style="margin-top:14px"><button class="btn sec2" data-act="att">الحضور</button><button class="btn sec2" data-act="cardsAll">البطاقات</button><button class="btn sec2" data-act="group">نتائج الحلقة</button><button class="btn sec2" data-act="allList">${view.all?"جدول الأيام":"كل الطلاب"}</button></div>`;
+}
+const _render0=render;
+render=function(){
+  if(view.page==="home"){renderHome();return}
+  _render0();
+};
+
+// ===== نموذج الطالب: أيام التسميع =====
+const _sf=studentForm;
+studentForm=function(s){
+  _sf(s);
+  const box=document.createElement("div");
+  box.innerHTML=`<label>أيام التسميع</label><div class="dchips">${WDN.map((n,i)=>`<button type="button" class="dchip ${(s&&(s.days||[]).includes(i))?"on":""}" data-d="${i}">${n}</button>`).join("")}</div>`;
+  const er=$("er");er.parentNode.insertBefore(box,er);
+};
+let pendSave=null;
+document.addEventListener("click",e=>{
+  const b=e.target.closest&&e.target.closest(".dchip");
+  if(b){b.classList.toggle("on");e.preventDefault()}
+},true);
+document.addEventListener("click",e=>{
+  const t=e.target.closest&&e.target.closest('[data-act="saveStudent"]');if(!t)return;
+  const h=$("sheet").querySelector("h2");
+  pendSave={edit:!!(h&&h.textContent.includes("تعديل")),sid:view.sid,n:db.students.length,days:[...document.querySelectorAll("#sheet .dchip.on")].map(b=>+b.dataset.d)};
+},true);
+document.addEventListener("click",e=>{
+  const t=e.target.closest&&e.target.closest('[data-act="saveStudent"]');if(!t||!pendSave)return;
+  const p=pendSave;pendSave=null;
+  if($("ov").classList.contains("on"))return;
+  const s=p.edit?db.students.find(x=>x.id===p.sid):db.students[p.n];
+  if(s){s.days=p.days;save();render()}
+});
+
+// ===== تسجيل الحفظ: الآيات تلقائية =====
+const _lf=logForm;
+logForm=function(l){
+  _lf(l);
+  const lab=document.createElement("label");
+  lab.style.cssText="display:flex;gap:8px;align-items:center;margin-top:10px;font-size:14px";
+  lab.innerHTML=`<input type="checkbox" id="pt" style="width:auto;min-height:0"> تعديل الآيات يدوياً (حفظ جزئي)`;
+  const er=$("er");er.parentNode.insertBefore(lab,er);
+  if(!l&&view.wdDate){$("dt").value=view.wdDate;view.wdDate=null}
+  const partial=!!(l&&(l.ta!==AYAHS[l.ts]||l.fa!==1));
+  $("pt").checked=partial;
+  $("fa").readOnly=!partial;$("ta").readOnly=!partial;
+  if(!partial&&!l)$("ta").value=AYAHS[+$("ts").value];
+};
+document.addEventListener("change",e=>{
+  const t=e.target;if(!$("pt")||!$("fs"))return;
+  if(t.id==="fs"&&!$("pt").checked)$("fa").value=1;
+  if(t.id==="ts"&&!$("pt").checked)$("ta").value=AYAHS[+$("ts").value];
+  if(t.id==="pt"){const on=t.checked;$("fa").readOnly=!on;$("ta").readOnly=!on;if(!on){$("fa").value=1;$("ta").value=AYAHS[+$("ts").value]}}
+});
+
+// ===== أزرار الجدول =====
+document.addEventListener("click",e=>{
+  const t=e.target.closest&&e.target.closest("[data-act]");if(!t)return;
+  const a=t.dataset.act;
+  if(a==="wd"){view.wd=+t.dataset.w;render()}
+  else if(a==="wkPrev"){view.woff=(view.woff||0)-1;render()}
+  else if(a==="wkNext"){view.woff=(view.woff||0)+1;render()}
+  else if(a==="wkNow"){view.woff=0;view.wd=new Date(today()+"T00:00:00").getDay();render()}
+  else if(a==="allList"){view.all=!view.all;render()}
+  else if(a==="recFor"){view.sid=t.dataset.id;view.wdDate=dayDate(view.wd);logForm(null)}
+});
+
+if(!openReport())render();
 </script>
 </body>
 </html>
