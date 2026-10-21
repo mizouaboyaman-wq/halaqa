@@ -341,7 +341,8 @@ async function doImport(){
     const logs=(Array.isArray(s.logs)?s.logs:[]).filter(l=>l&&okN(l.fs)&&okN(l.ts)&&l.fs>=0&&l.fs<114&&l.ts>=0&&l.ts<114&&okN(l.fa)&&okN(l.ta)&&typeof l.date==="string"&&GRADES.includes(l.grade))
       .map(l=>({id:String(l.id||uid()),date:l.date,fs:l.fs,fa:l.fa,ts:l.ts,ta:l.ta,grade:l.grade,note:String(l.note||"").slice(0,200),kind:l.kind==="r"?"r":"n",revs:(Array.isArray(l.revs)?l.revs:[]).filter(v=>v&&typeof v.date==="string"&&GRADES.includes(v.grade)).map(v=>({id:String(v.id||uid()),date:v.date,grade:v.grade}))}));
     let cur=s.id?db.students.find(x=>x.id===String(s.id)):null;
-    if(!cur){cur={id:String(s.id||uid()),name:(s.name.trim()+(s.last?" "+String(s.last).trim():"")).slice(0,60),phone:String(s.phone||"").replace(/\D/g,""),next:String(s.next||"").slice(0,200),bd:/^\d{4}-\d{2}-\d{2}$/.test(s.bd||"")?s.bd:"",lvl:String(s.lvl||"").slice(0,40),serial:String(s.serial||"").slice(0,20),base:(s.base&&Number.isInteger(s.base.s)&&s.base.s>=0&&s.base.s<114&&Number.isInteger(s.base.a)&&s.base.a>=1&&s.base.a<=AYAHS[s.base.s])?{s:s.base.s,a:s.base.a}:undefined,photo:typeof s.photo==="string"&&s.photo.startsWith("data:image/")&&s.photo.length<300000?s.photo:undefined,logs:[]};db.students.push(cur);addS++}
+    if(!cur){cur={id:String(s.id||uid()),name:(s.name.trim()+(s.last?" "+String(s.last).trim():"")).slice(0,60),phone:String(s.phone||"").replace(/\D/g,""),next:String(s.next||"").slice(0,200),bd:/^\d{4}-\d{2}-\d{2}$/.test(s.bd||"")?s.bd:"",lvl:String(s.lvl||"").slice(0,40),serial:String(s.serial||"").slice(0,20),base:(s.base&&Number.isInteger(s.base.s)&&s.base.s>=0&&s.base.s<114&&Number.isInteger(s.base.a)&&s.base.a>=1&&s.base.a<=AYAHS[s.base.s])?{s:s.base.s,a:s.base.a}:undefined,photo:typeof s.photo==="string"&&s.photo.startsWith("data:image/")&&s.photo.length<300000?s.photo:undefined,days:Array.isArray(s.days)?s.days.filter(i=>Number.isInteger(i)&&i>=0&&i<=6):[],logs:[]};db.students.push(cur);addS++}
+    if(!(cur.days&&cur.days.length)&&Array.isArray(s.days))cur.days=s.days.filter(i=>Number.isInteger(i)&&i>=0&&i<=6);
     if(Array.isArray(s.hd)){cur.hd=[...new Set([...(cur.hd||[]),...s.hd.filter(v=>typeof v==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(v))])]}
     if(Array.isArray(s.exams)){cur.exams=cur.exams||[];for(const e of s.exams){if(e&&typeof e.title==="string"&&typeof e.date==="string"&&Number.isFinite(+e.score)&&!cur.exams.some(y=>y.id===String(e.id)))cur.exams.push({id:String(e.id||uid()),date:e.date,title:e.title.slice(0,60),score:+e.score,note:String(e.note||"").slice(0,120)})}}
     for(const l of logs){const ex=cur.logs.find(x=>x.id===l.id);if(!ex){cur.logs.push(l);addL++}else{ex.revs=ex.revs||[];for(const v of l.revs)if(!ex.revs.some(y=>y.id===v.id))ex.revs.push(v)}}
@@ -639,6 +640,7 @@ async function renderCards(){
   $("fab").style.display="none";
   $("hd").innerHTML=`<button class="hbtn" data-act="back" aria-label="رجوع">→</button><h1>بطاقات الطلاب<span class="sub">${db.students.length} بطاقة</span></h1>`;
   $("app").innerHTML=`<div class="note">كل صفحة بحجم A4 وفيها حتى 8 بطاقات. اضغط مطولاً على الصفحة واحفظها كصورة ثم اطبعها، وقصّ البطاقات بعد الطباعة.</div><div id="pacts"></div><div id="pg" class="note" style="text-align:center">جارٍ تجهيز الصفحات…</div>`;
+  if(!db.students.length){$("pg").className="";$("pg").innerHTML='<div class="empty"><b>لا يوجد طلاب بعد</b>أضف طلاباً أولاً ثم ارجع إلى هنا.</div>';return}
   const tk=view.tk=Math.random(),box=$("pg");view.pcv=[];
   for(let i=0;i<db.students.length;i+=8){
     const pc=document.createElement("canvas");pc.width=1654;pc.height=2339;
@@ -975,7 +977,7 @@ async function printPages(){
 const WDN=["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"];
 const wkStart=()=>addD(today(),-(new Date(today()+"T00:00:00").getDay())+7*(view.woff||0));
 const dayDate=wd=>addD(wkStart(),wd);
-const studentsOn=wd=>db.students.filter(s=>(s.days||[]).includes(wd));
+const studentsOn=wd=>db.students.filter(s=>(s.days||[]).includes(wd)).sort((a,b)=>a.name.localeCompare(b.name,"ar"));
 const recordedOn=(s,D)=>s.logs.some(l=>l.date===D)||s.logs.some(l=>(l.revs||[]).some(v=>v.date===D));
 const dayNames=s=>(s.days||[]).slice().sort().map(i=>WDN[i]).join("، ")||"بدون يوم محدد";
 
