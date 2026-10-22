@@ -1180,6 +1180,25 @@ document.addEventListener("click",e=>{
   }
 });
 
+
+// ===== التنقل بين الطلاب من صفحة الطالب =====
+const stuOrder=()=>[...db.students].sort((a,b)=>a.name.localeCompare(b.name,"ar"));
+const _render2=render;
+render=function(){
+  _render2();
+  if(view.page==="student"&&student()){
+    const L=stuOrder(),i=L.findIndex(x=>x.id===view.sid);
+    const prev=L[i-1],next=L[i+1];
+    const nav=`<div class="acts" style="margin:0 0 12px"><button class="btn sec2" data-act="stuGo" data-id="${prev?prev.id:""}" ${prev?"":"disabled"}>→ السابق</button><button class="btn sec2" data-act="stuGo" data-id="${next?next.id:""}" ${next?"":"disabled"}>التالي ←</button></div>`;
+    $("app").insertAdjacentHTML("afterbegin",nav);
+  }
+};
+document.addEventListener("click",e=>{
+  const t=e.target.closest&&e.target.closest("[data-act='stuGo']");
+  if(!t||!t.dataset.id)return;
+  view.sid=t.dataset.id;view.page="student";render();scrollTo(0,0);
+});
+
 if(!openReport())render();
 </script>
 </body>
