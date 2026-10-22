@@ -889,7 +889,7 @@ let installEv=null,pcam=null;
 const RPV=/^#r=/.test(location.hash);
 addEventListener("beforeinstallprompt",e=>{e.preventDefault();installEv=e;if(!RPV&&view.page==="home")render()});
 addEventListener("appinstalled",()=>{installEv=null;if(!RPV&&view.page==="home")render()});
-if("serviceWorker" in navigator)addEventListener("load",()=>{navigator.serviceWorker.register("sw.js").catch(()=>{})});
+if("serviceWorker" in navigator)addEventListener("load",()=>{const had=!!navigator.serviceWorker.controller;navigator.serviceWorker.addEventListener("controllerchange",()=>{if(had)location.reload()});navigator.serviceWorker.register("sw.js").then(r=>r.update()).catch(()=>{})});
 
 async function photoSheet(face){
   stopScan();
@@ -1012,7 +1012,7 @@ function renderHome(){
       +(none.length?`<div class="sec" style="margin-top:14px">بدون يوم محدد (${none.length})</div>`+none.map(s=>row(s,false)).join(""):"");
   }
   $("app").innerHTML=remindBox()+strip+nav+body
-    +`<div class="acts" style="margin-top:14px"><button class="btn sec2" data-act="att">الحضور</button><button class="btn sec2" data-act="cardsAll">البطاقات</button><button class="btn sec2" data-act="group">نتائج الحلقة</button><button class="btn sec2" data-act="allList">${view.all?"جدول الأيام":"كل الطلاب"}</button></div>`;
+    +`<div class="acts" style="margin-top:14px"><button class="btn" data-act="sendAll">إرسال التقارير</button><button class="btn sec2" data-act="att">الحضور</button><button class="btn sec2" data-act="cardsAll">البطاقات</button><button class="btn sec2" data-act="group">نتائج الحلقة</button><button class="btn sec2" data-act="allList">${view.all?"جدول الأيام":"كل الطلاب"}</button></div>`;
 }
 const _render0=render;
 render=function(){
@@ -1134,6 +1134,50 @@ document.addEventListener("click",e=>{
   }
   else if(a==="cpMake")makeCardPages();
   else if(a==="dlPages")dlPages();
+});
+
+
+// ===== إرسال التقارير لأولياء الأمور عبر واتساب =====
+async function renderSend(){
+  $("fab").style.display="none";
+  const days=view.sendDays||7,tok=view.sendTok=Math.random();
+  $("hd").innerHTML=`<button class="hbtn" data-act="back" aria-label="رجوع">→</button><h1>إرسال التقارير<span class="sub">لأولياء الأمور عبر واتساب</span></h1>`;
+  const withPh=db.students.filter(s=>s.phone),noPh=db.students.filter(s=>!s.phone);
+  $("app").innerHTML=`<div class="acts" style="margin:0 0 10px"><button class="btn ${days===7?"":"sec2"}" data-act="sendDays" data-d="7">آخر أسبوع</button><button class="btn ${days===30?"":"sec2"}" data-act="sendDays" data-d="30">آخر شهر</button></div>
+   <div class="note">اضغط «إرسال» بجانب الطالب، فيفتح واتساب على رقم وليّ الأمر برسالة جاهزة فيها التقرير، ثم اضغط إرسال داخل واتساب.</div>
+   <div id="sl"><div class="empty">جارٍ تجهيز التقارير…</div></div>
+   ${noPh.length?`<div class="alertbox warn" style="margin-top:12px">لا يوجد رقم وليّ أمر لهؤلاء، ولن تُرسل لهم: ${noPh.map(s=>esc(s.name)).join("، ")}</div>`:""}`;
+  const links={};
+  for(const s of withPh){
+    const url=location.href.split("#")[0]+"#r="+await packRep(repData(s,days));
+    links[s.id]=`https://wa.me/${s.phone}?text=${encodeURIComponent(`تقرير ${s.name} — ${db.hname}\n${url}`)}`;
+  }
+  if(view.sendTok!==tok||view.page!=="send")return;
+  const sent=db.sent||{};
+  const k=id=>`${today()}:${days}:${id}`;
+  $("sl").innerHTML=withPh.length
+    ? withPh.map(s=>{
+        const done=!!sent[k(s.id)];
+        const btn=done?`<span class="badge gr1">✓ أُرسل</span>`
+          :`<a class="btn" style="flex:none;min-height:42px;padding:0 14px;display:grid;place-items:center;text-decoration:none" target="_blank" rel="noopener" href="${links[s.id]}" data-act="sendOne" data-key="${k(s.id)}">إرسال</a>`;
+        return `<div class="row" style="cursor:default"><div class="av">${esc([...s.name][0]||"؟")}</div><div class="grow"><div class="name">${esc(s.name)}</div><div class="meta" dir="ltr" style="text-align:right">${esc(s.phone)}</div></div>${btn}</div>`;
+      }).join("")
+    : `<div class="empty"><b>لا يوجد طلاب لديهم أرقام</b>أضف رقم وليّ الأمر من بيانات الطالب.</div>`;
+}
+const _render1=render;
+render=function(){
+  if(view.page==="send"){renderSend();return}
+  _render1();
+};
+document.addEventListener("click",e=>{
+  const t=e.target.closest&&e.target.closest("[data-act]");if(!t)return;
+  const a=t.dataset.act;
+  if(a==="sendAll"){view={page:"send",sid:null,sendDays:view.sendDays||7};render();scrollTo(0,0)}
+  else if(a==="sendDays"){view.sendDays=+t.dataset.d;render()}
+  else if(a==="sendOne"){
+    db.sent=db.sent||{};db.sent[t.dataset.key]=true;save();
+    setTimeout(()=>{t.textContent="✓ أُرسل";t.style.background="var(--g1)"},300);
+  }
 });
 
 if(!openReport())render();
