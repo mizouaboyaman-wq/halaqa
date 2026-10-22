@@ -1222,6 +1222,152 @@ function repSummary(s,days){
   ].filter(Boolean).join("\n");
 }
 
+
+// ===== تقرير مصوّر مفصّل (صورة بدل الرابط) =====
+async function reportPages(s,days){
+  try{await document.fonts.load("700 40px Tajawal");await document.fonts.load("400 28px Tajawal")}catch(e){}
+  const W=1080,H=1500,PRI="#1b5e4b",GOLD="#b8893b",INK="#14231c",MUTE="#5d6f66",LINE="#dbe4df",BG="#f1f5f3";
+  const GC={"ممتاز":"#1b7f4f","جيد جداً":"#1f6f9c","جيد":"#b9791c","إعادة":"#b23a3a"};
+  const AC={p:"#1b7f4f",l:"#b9791c",e:"#1f6f9c",a:"#b23a3a"};
+  const exCls=v=>v>=90?"#1b7f4f":v>=75?"#1f6f9c":v>=60?"#b9791c":"#b23a3a";
+  const from=repFrom(s,days),to=today();
+  const sd=x=>new Date(x+"T00:00:00").toLocaleDateString("ar-EG",{day:"numeric",month:"short"});
+  const c={p:0,l:0,e:0,a:0};
+  for(const d in db.att)if(d>=from&&d<=to&&db.att[d][s.id])c[db.att[d][s.id]]++;
+  const tot=c.p+c.l+c.e+c.a,rate=tot?Math.round((c.p+c.l)/tot*100):null;
+  const memo=s.logs.filter(l=>l.kind!=="r"&&l.date>=from&&l.date<=to).sort((a,b)=>a.date.localeCompare(b.date));
+  const rv=[];s.logs.forEach(l=>(l.revs||[]).forEach(v=>{if(v.date>=from&&v.date<=to)rv.push({date:v.date,text:shortR(l),grade:v.grade})}));
+  rv.sort((a,b)=>a.date.localeCompare(b.date));
+  const ex=(s.exams||[]).filter(e=>e.date>=from&&e.date<=to).sort((a,b)=>a.date.localeCompare(b.date));
+  const p=progInfo(s);
+  const pages=[];let cv,x,y;
+  const F=(w,z)=>`${w} ${z}px Tajawal,system-ui,sans-serif`;
+  const T=(t,px,py,z,w,col,al,mx)=>{let zz=z;x.font=F(w,zz);while(mx&&x.measureText(t).width>mx&&zz>14){zz-=2;x.font=F(w,zz)}x.fillStyle=col;x.textAlign=al||"right";x.fillText(t,px,py)};
+  const R=(a,b,w,h,r,f)=>{x.beginPath();if(x.roundRect)x.roundRect(a,b,w,h,r);else x.rect(a,b,w,h);x.fillStyle=f;x.fill()};
+  const badge=(t,right,cy,col)=>{x.font=F("700",24);const w=x.measureText(t).width+28;R(right-w,cy-19,w,38,19,col);T(t,right-w/2,cy+8,24,"700","#fff","center")};
+  const newPage=first=>{
+    cv=document.createElement("canvas");cv.width=W;cv.height=H;x=cv.getContext("2d");x.direction="rtl";pages.push(cv);
+    R(0,0,W,H,0,"#fff");
+    if(first){
+      R(0,0,W,250,0,PRI);R(0,250,W,8,0,GOLD);
+      T(db.hname,W-60,85,38,"400","rgba(255,255,255,.9)","right",W-300);
+      T(s.name,W-60,160,58,"700","#fff","right",W-300);
+      T(`الفترة: ${sd(from)} — ${sd(to)}`,W-60,215,28,"400","rgba(255,255,255,.9)","right");
+      x.beginPath();x.arc(120,125,70,0,Math.PI*2);x.fillStyle="#fff";x.fill();
+      T([...s.name][0]||"؟",120,150,70,"700",PRI,"center");
+      y=310;
+      const avgE=ex.length?Math.round(ex.reduce((n,e)=>n+e.score,0)/ex.length):null;
+      const tiles=[[rate===null?"—":rate+"%","نسبة الحضور",rate===null?MUTE:rate>=80?"#1b7f4f":rate>=60?"#b9791c":"#b23a3a"],[memo.length,"جلسات الحفظ",PRI],[rv.length,"مراجعات",PRI],[avgE===null?"—":avgE,"متوسط الاختبارات",PRI]];
+      const tw=(W-120-60)/4;
+      tiles.forEach((t,i)=>{const tx=60+i*(tw+20);R(tx,y,tw,160,22,BG);T(String(t[0]),tx+tw/2,y+85,56,"700",t[2],"center");T(t[1],tx+tw/2,y+134,26,"400",MUTE,"center")});
+      y+=200;
+      T("تقدم الحفظ",W-60,y+30,36,"700",INK);
+      if(p)T(`${p.pct}% — وصل إلى سورة ${p.sur} آية ${p.ay}`,60,y+30,28,"400",MUTE,"left");
+      y+=50;
+      R(60,y,W-120,30,15,LINE);
+      if(p&&p.pct>0){const w=Math.max(30,(W-120)*p.pct/100);R(W-60-w,y,w,30,15,PRI)}
+      y+=70;
+      T("الحضور خلال الفترة",W-60,y,36,"700",INK);
+      y+=28;
+      const ch=[["حاضر",c.p,AC.p],["متأخر",c.l,AC.l],["بعذر",c.e,AC.e],["غائب",c.a,AC.a]];
+      const cw=(W-120-60)/4;
+      ch.forEach((q,i)=>{const cx=60+i*(cw+20);R(cx,y+10,cw,90,20,q[2]);T(String(q[1]),cx+cw/2,y+58,40,"700","#fff","center");T(q[0],cx+cw/2,y+88,22,"400","rgba(255,255,255,.95)","center")});
+      y+=140;
+    }else{
+      R(0,0,W,120,0,PRI);R(0,120,W,6,0,GOLD);
+      T(`${s.name} — تابع التقرير`,W-60,78,36,"700","#fff","right",W-120);
+      y=170;
+    }
+  };
+  const ensure=h=>{if(y+h>H-80)newPage(false)};
+  const sec=title=>{ensure(90);T(title,W-60,y+34,38,"700",PRI);R(60,y+52,W-120,3,1,LINE);y+=80};
+  const empty=t=>{ensure(70);T(t,W-60,y+36,30,"400",MUTE);y+=70};
+  newPage(true);
+  sec("الحفظ");
+  if(!memo.length)empty("لا يوجد حفظ في هذه الفترة");
+  memo.forEach(l=>{
+    ensure(130);
+    R(40,y,W-80,110,20,BG);
+    T(sd(l.date),W-70,y+40,24,"400",MUTE);
+    T(shortR(l),W-70,y+78,30,"700",INK,"right",W-400);
+    if(l.note)T(l.note,W-70,y+102,22,"400",MUTE,"right",W-400);
+    badge(l.grade,240,y+55,GC[l.grade]||MUTE);
+    y+=130;
+  });
+  sec("المراجعة");
+  if(!rv.length)empty("لا توجد مراجعات في هذه الفترة");
+  rv.forEach(v=>{
+    ensure(90);
+    R(40,y,W-80,80,18,BG);
+    T(sd(v.date),W-70,y+50,26,"400",MUTE);
+    T(v.text,W-260,y+50,28,"700",INK,"right",W-520);
+    badge(v.grade,240,y+40,GC[v.grade]||MUTE);
+    y+=90;
+  });
+  sec("الاختبارات");
+  if(!ex.length)empty("لا توجد اختبارات في هذه الفترة");
+  ex.forEach(e=>{
+    ensure(90);
+    R(40,y,W-80,80,18,BG);
+    T(sd(e.date),W-70,y+50,26,"400",MUTE);
+    T(e.title,W-260,y+50,28,"700",INK,"right",W-520);
+    badge(`${e.score}/100`,240,y+40,exCls(e.score));
+    y+=90;
+  });
+  if(s.next){
+    ensure(170);
+    R(40,y+10,W-80,130,22,"#fbf3e4");
+    T("المطلوب للجلسة القادمة",W-70,y+50,28,"700",GOLD);
+    T(s.next,W-70,y+100,34,"700",INK,"right",W-140);
+    y+=160;
+  }
+  pages.forEach((pg,i)=>{const g=pg.getContext("2d");g.direction="rtl";g.font=F("400",22);g.fillStyle=MUTE;g.textAlign="center";g.fillText(`صفحة ${i+1} من ${pages.length} — ${new Date().toLocaleDateString("ar-EG")}`,W/2,H-30)});
+  return pages;
+}
+async function shareReport(s,days){
+  const pages=await reportPages(s,days);
+  const blobs=await Promise.all(pages.map(c=>new Promise(r=>c.toBlob(r,"image/png"))));
+  const files=blobs.map((b,i)=>new File([b],`report-${i+1}.png`,{type:"image/png"}));
+  try{
+    if(navigator.canShare&&navigator.canShare({files})){await navigator.share({files,title:`تقرير ${s.name}`});return true}
+  }catch(e){if(e&&e.name==="AbortError")return false}
+  files.forEach(f=>{const u=URL.createObjectURL(f),a=document.createElement("a");a.href=u;a.download=`${s.name}-${f.name}`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),3000)});
+  alert("لم تُفتح قائمة المشاركة هنا، وحُفظت صور التقرير في التنزيلات. أرسلها من واتساب.");
+  return false;
+}
+renderSend=function(){
+  $("fab").style.display="none";
+  const days=view.sendDays??7;
+  $("hd").innerHTML=`<button class="hbtn" data-act="back" aria-label="رجوع">→</button><h1>إرسال التقارير<span class="sub">صورة تقرير لكل طالب عبر واتساب</span></h1>`;
+  const withPh=db.students.filter(s=>s.phone).sort((a,b)=>a.name.localeCompare(b.name,"ar")),noPh=db.students.filter(s=>!s.phone);
+  const sent=db.sent||{},k=id=>`${today()}:${days}:${id}`;
+  $("app").innerHTML=`<div class="acts" style="margin:0 0 10px">${[[7,"آخر أسبوع"],[30,"آخر شهر"],[0,"كل الفترة"]].map(([d,t])=>`<button class="btn ${days===d?"":"sec2"}" data-act="sendDays" data-d="${d}">${t}</button>`).join("")}</div>
+   <div class="note">اضغط «إرسال» بجانب الطالب، فتُجهَّز صورة تقرير مفصّلة وتفتح قائمة المشاركة. اختر واتساب ثم محادثة وليّ الأمر ثم إرسال.</div>
+   ${withPh.length?withPh.map(s=>{const done=!!sent[k(s.id)];return `<div class="row" style="cursor:default"><div class="av">${esc([...s.name][0]||"؟")}</div><div class="grow"><div class="name">${esc(s.name)}</div><div class="meta" dir="ltr" style="text-align:right">${esc(s.phone)}</div></div>${done?`<span class="badge gr1">✓ أُرسل</span>`:`<button class="btn" data-act="sendImg" data-id="${s.id}" style="flex:none;min-height:42px;padding:0 14px">إرسال</button>`}</div>`}).join(""):`<div class="empty"><b>لا يوجد طلاب لديهم أرقام</b>أضف رقم وليّ الأمر من بيانات الطالب.</div>`}
+   ${noPh.length?`<div class="alertbox warn" style="margin-top:12px">لا يوجد رقم وليّ أمر لهؤلاء، ولن تُرسل لهم: ${noPh.map(s=>esc(s.name)).join("، ")}</div>`:""}`;
+};
+reportSheet=function(s,days){
+  const t=reportText(s,days);
+  openSheet(`<h2>تقرير الطالب</h2>
+   <div class="acts" style="margin:0 0 10px"><button class="btn ${days===7?"":"sec2"}" data-act="rep" data-days="7">آخر أسبوع</button><button class="btn ${days===30?"":"sec2"}" data-act="rep" data-days="30">آخر شهر</button><button class="btn ${days===0?"":"sec2"}" data-act="rep" data-days="0">كل الفترة</button></div>
+   <div class="acts" style="margin:0 0 10px"><button class="btn" data-act="repImg" data-days="${days}">مشاركة صورة التقرير</button></div>
+   <div class="note">الصورة تعرض التقرير بالتفاصيل، وتُرسل كصورة عبر واتساب.</div>
+   <textarea id="rt" readonly style="direction:rtl;min-height:160px">${esc(t)}</textarea>
+   <div class="err" id="er"></div>
+   <div class="acts"><button class="btn sec2" data-act="copyRep">نسخ النص</button><button class="btn sec2" data-act="close">إغلاق</button></div>`);
+};
+document.addEventListener("click",async e=>{
+  const t=e.target.closest&&e.target.closest("[data-act='repImg'],[data-act='sendImg']");if(!t||t.disabled)return;
+  const isSend=t.dataset.act==="sendImg";
+  const s=isSend?byId(t.dataset.id):student();
+  if(!s)return;
+  const days=isSend?(view.sendDays??7):+t.dataset.days;
+  const label=t.textContent;t.disabled=true;t.textContent="جارٍ التجهيز…";
+  const ok=await shareReport(s,days);
+  t.disabled=false;t.textContent=label;
+  if(ok&&isSend){db.sent=db.sent||{};db.sent[`${today()}:${days}:${s.id}`]=true;save();renderSend()}
+});
+
 if(!openReport())render();
 </script>
 </body>
