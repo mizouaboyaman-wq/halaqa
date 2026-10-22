@@ -433,7 +433,7 @@ function searchBar(){
   return `<div class="two" style="margin-bottom:12px"><input id="q" type="search" placeholder="بحث عن طالب" value="${esc(view.q||"")}"><select id="srt">${[["name","بالاسم"],["recent","الأحدث حفظاً"],["follow","يحتاج متابعة"]].map(([v,t])=>`<option value="${v}" ${(view.sort||"name")===v?"selected":""}>${t}</option>`).join("")}</select></div>`+(homeList().length?"":`<div class="empty">لا نتائج</div>`);
 }
 function reportText(s,days){
-  const f=new Date();f.setDate(f.getDate()-days+1);const from=f.toISOString().slice(0,10),to=today();
+  const from=repFrom(s,days),to=today();
   const sd=x=>new Date(x+"T00:00:00").toLocaleDateString("ar-EG",{day:"numeric",month:"numeric"});
   const L=[`تقرير الطالب: ${s.name}`,`الفترة: ${sd(from)} - ${sd(to)}`,""];
   const c={p:0,l:0,e:0,a:0},ab=[];
@@ -455,7 +455,7 @@ function reportText(s,days){
 function reportSheet(s,days){
   const t=reportText(s,days),ph=s.phone||"";
   openSheet(`<h2>تقرير الطالب</h2>
-   <div class="acts" style="margin:0 0 10px"><button class="btn ${days===7?"":"sec2"}" data-act="rep" data-days="7">آخر أسبوع</button><button class="btn ${days===30?"":"sec2"}" data-act="rep" data-days="30">آخر شهر</button></div>
+   <div class="acts" style="margin:0 0 10px"><button class="btn ${days===7?"":"sec2"}" data-act="rep" data-days="7">آخر أسبوع</button><button class="btn ${days===30?"":"sec2"}" data-act="rep" data-days="30">آخر شهر</button><button class="btn ${days===0?"":"sec2"}" data-act="rep" data-days="0">كل الفترة</button></div>
    <textarea id="rt" readonly style="direction:rtl;min-height:220px">${esc(t)}</textarea>
    <div class="err" id="er"></div>
    <div class="acts" style="margin:0 0 10px"><button class="btn" data-act="repLink" data-days="${days}">رابط تقرير مصوّر للوليّ</button></div>
@@ -924,7 +924,7 @@ async function unpackRep(t){
   return JSON.parse(new TextDecoder().decode(u8));
 }
 function repData(s,days){
-  const to=today(),f=addD(to,-(days-1)),c={p:0,l:0,e:0,a:0};
+  const to=today(),f=repFrom(s,days),c={p:0,l:0,e:0,a:0};
   for(const d in db.att)if(d>=f&&d<=to&&db.att[d][s.id])c[db.att[d][s.id]]++;
   const lg=s.logs.filter(l=>l.date>=f&&l.date<=to).sort((a,b)=>a.date.localeCompare(b.date));
   const rv=[];s.logs.forEach(l=>(l.revs||[]).forEach(v=>{if(v.date>=f&&v.date<=to)rv.push([v.date,shortR(l),v.grade])}));
@@ -1140,17 +1140,17 @@ document.addEventListener("click",e=>{
 // ===== إرسال التقارير لأولياء الأمور عبر واتساب =====
 async function renderSend(){
   $("fab").style.display="none";
-  const days=view.sendDays||7,tok=view.sendTok=Math.random();
+  const days=view.sendDays??7,tok=view.sendTok=Math.random();
   $("hd").innerHTML=`<button class="hbtn" data-act="back" aria-label="رجوع">→</button><h1>إرسال التقارير<span class="sub">لأولياء الأمور عبر واتساب</span></h1>`;
   const withPh=db.students.filter(s=>s.phone),noPh=db.students.filter(s=>!s.phone);
-  $("app").innerHTML=`<div class="acts" style="margin:0 0 10px"><button class="btn ${days===7?"":"sec2"}" data-act="sendDays" data-d="7">آخر أسبوع</button><button class="btn ${days===30?"":"sec2"}" data-act="sendDays" data-d="30">آخر شهر</button></div>
+  $("app").innerHTML=`<div class="acts" style="margin:0 0 10px"><button class="btn ${days===7?"":"sec2"}" data-act="sendDays" data-d="7">آخر أسبوع</button><button class="btn ${days===30?"":"sec2"}" data-act="sendDays" data-d="30">آخر شهر</button><button class="btn ${days===0?"":"sec2"}" data-act="sendDays" data-d="0">كل الفترة</button></div>
    <div class="note">اضغط «إرسال» بجانب الطالب، فيفتح واتساب على رقم وليّ الأمر برسالة جاهزة فيها التقرير، ثم اضغط إرسال داخل واتساب.</div>
    <div id="sl"><div class="empty">جارٍ تجهيز التقارير…</div></div>
    ${noPh.length?`<div class="alertbox warn" style="margin-top:12px">لا يوجد رقم وليّ أمر لهؤلاء، ولن تُرسل لهم: ${noPh.map(s=>esc(s.name)).join("، ")}</div>`:""}`;
   const links={};
   for(const s of withPh){
     const url=location.href.split("#")[0]+"#r="+await packRep(repData(s,days));
-    links[s.id]=`https://wa.me/${s.phone}?text=${encodeURIComponent(`تقرير ${s.name} — ${db.hname}\n${url}`)}`;
+    links[s.id]=`https://wa.me/${s.phone}?text=${encodeURIComponent(`تقرير ${s.name} — ${db.hname}\n${repSummary(s,days)}\n\nالتقرير الكامل:\n${url}`)}`;
   }
   if(view.sendTok!==tok||view.page!=="send")return;
   const sent=db.sent||{};
@@ -1172,7 +1172,7 @@ render=function(){
 document.addEventListener("click",e=>{
   const t=e.target.closest&&e.target.closest("[data-act]");if(!t)return;
   const a=t.dataset.act;
-  if(a==="sendAll"){view={page:"send",sid:null,sendDays:view.sendDays||7};render();scrollTo(0,0)}
+  if(a==="sendAll"){view={page:"send",sid:null,sendDays:view.sendDays??7};render();scrollTo(0,0)}
   else if(a==="sendDays"){view.sendDays=+t.dataset.d;render()}
   else if(a==="sendOne"){
     db.sent=db.sent||{};db.sent[t.dataset.key]=true;save();
@@ -1198,6 +1198,29 @@ document.addEventListener("click",e=>{
   if(!t||!t.dataset.id)return;
   view.sid=t.dataset.id;view.page="student";render();scrollTo(0,0);
 });
+
+
+// ===== التقرير الشامل =====
+function repFrom(s,days){
+  if(days>0)return addD(today(),-(days-1));
+  const ds=[...s.logs.map(l=>l.date),...Object.keys(db.att).filter(d=>db.att[d][s.id]),...(s.exams||[]).map(e=>e.date),today()].sort();
+  return ds[0]||today();
+}
+function repSummary(s,days){
+  const from=repFrom(s,days),to=today(),c={p:0,l:0,e:0,a:0};
+  for(const d in db.att)if(d>=from&&d<=to&&db.att[d][s.id])c[db.att[d][s.id]]++;
+  const tot=c.p+c.l+c.e+c.a,rate=tot?Math.round((c.p+c.l)/tot*100):null;
+  const nl=s.logs.filter(l=>l.kind!=="r"&&l.date>=from&&l.date<=to).length;
+  const nr=s.logs.reduce((n,l)=>n+(l.revs||[]).filter(v=>v.date>=from&&v.date<=to).length,0);
+  const p=progInfo(s);
+  return [
+    `الحضور: ${rate===null?"—":rate+"%"} (حاضر ${c.p}، متأخر ${c.l}، بعذر ${c.e}، غائب ${c.a})`,
+    `جلسات الحفظ: ${nl}`,
+    `المراجعات: ${nr}`,
+    p?`التقدم: ${p.pct}% — سورة ${p.sur} آية ${p.ay}`:"",
+    s.next?`المطلوب القادم: ${s.next}`:""
+  ].filter(Boolean).join("\n");
+}
 
 if(!openReport())render();
 </script>
