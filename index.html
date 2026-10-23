@@ -111,6 +111,20 @@ a.btn{display:grid;place-items:center;text-decoration:none}
 <meta name="apple-mobile-web-app-title" content="الحلقة">
 <style>#printArea{display:none}@media print{body>*:not(#printArea){display:none!important}#printArea{display:block}#printArea img{display:block;width:210mm;height:297mm;object-fit:contain;break-after:page;page-break-after:always}@page{size:A4;margin:0}}</style>
 <style>.wks{display:flex;gap:6px;overflow-x:auto;margin-bottom:10px;padding-bottom:4px}.wk{flex:0 0 auto;border:2px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:8px 11px;font:inherit;font-size:14px;cursor:pointer}.wk.on,.dchip.on{background:var(--pri);color:#fff;border-color:transparent;font-weight:700}.dchips{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}.dchip{border:2px solid var(--line);background:var(--bg);color:var(--ink);border-radius:10px;padding:9px 12px;font:inherit;font-size:14px;cursor:pointer}input[readonly]{opacity:.7}</style>
+<style>
+html,body{max-width:100%;overflow-x:hidden}
+*,*::before,*::after{min-width:0}
+header{max-width:100%}
+header h1{min-width:0;overflow-wrap:anywhere}
+header .sub{overflow-wrap:anywhere}
+main,.sheet{max-width:100%}
+img,video,canvas,textarea,input,select{max-width:100%}
+.two{grid-template-columns:minmax(0,2fr) minmax(0,1fr)}
+.acts{flex-wrap:wrap}
+.btn,.hbtn{min-width:0;white-space:normal}
+.row,.arow,.log{max-width:100%}
+.name,.meta{overflow-wrap:anywhere}
+</style>
 </head>
 <body>
 <header id="hd"></header>
@@ -1366,6 +1380,97 @@ document.addEventListener("click",async e=>{
   const ok=await shareReport(s,days);
   t.disabled=false;t.textContent=label;
   if(ok&&isSend){db.sent=db.sent||{};db.sent[`${today()}:${days}:${s.id}`]=true;save();renderSend()}
+});
+
+// ===== تصدير Excel (xlsx) =====
+const CRC_T=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();
+function crc32(u){let c=0xFFFFFFFF;for(let i=0;i<u.length;i++)c=CRC_T[(c^u[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0}
+function zipStore(files){
+  const parts=[],central=[];let off=0;
+  for(const f of files){
+    const nameB=new TextEncoder().encode(f.name),data=f.data,crc=crc32(data);
+    const lh=new DataView(new ArrayBuffer(30));
+    lh.setUint32(0,0x04034b50,true);lh.setUint16(4,20,true);lh.setUint16(6,0x0800,true);lh.setUint16(8,0,true);lh.setUint16(10,0,true);lh.setUint16(12,0x21,true);
+    lh.setUint32(14,crc,true);lh.setUint32(18,data.length,true);lh.setUint32(22,data.length,true);lh.setUint16(26,nameB.length,true);lh.setUint16(28,0,true);
+    parts.push(new Uint8Array(lh.buffer),nameB,data);
+    const ch=new DataView(new ArrayBuffer(46));
+    ch.setUint32(0,0x02014b50,true);ch.setUint16(4,20,true);ch.setUint16(6,20,true);ch.setUint16(8,0x0800,true);ch.setUint16(10,0,true);ch.setUint16(12,0,true);ch.setUint16(14,0x21,true);
+    ch.setUint32(16,crc,true);ch.setUint32(20,data.length,true);ch.setUint32(24,data.length,true);ch.setUint16(28,nameB.length,true);
+    ch.setUint16(30,0,true);ch.setUint16(32,0,true);ch.setUint16(34,0,true);ch.setUint16(36,0,true);ch.setUint32(38,0,true);ch.setUint32(42,off,true);
+    central.push(new Uint8Array(ch.buffer),nameB);
+    off+=30+nameB.length+data.length;
+  }
+  const cdSize=central.reduce((n,a)=>n+a.length,0);
+  const end=new DataView(new ArrayBuffer(22));
+  end.setUint32(0,0x06054b50,true);end.setUint16(8,files.length,true);end.setUint16(10,files.length,true);end.setUint32(12,cdSize,true);end.setUint32(16,off,true);
+  return new Blob([...parts,...central,new Uint8Array(end.buffer)],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+}
+const xmlE=v=>String(v).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g,"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const colL=i=>{let s="";i++;while(i>0){const m=(i-1)%26;s=String.fromCharCode(65+m)+s;i=Math.floor((i-1)/26)}return s};
+function sheetXml(rows){
+  let x='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>';
+  rows.forEach((r,ri)=>{
+    x+=`<row r="${ri+1}">`;
+    r.forEach((v,ci)=>{
+      const ref=colL(ci)+(ri+1);
+      if(v===null||v===undefined||v==="")return;
+      if(typeof v==="number"&&isFinite(v))x+=`<c r="${ref}"><v>${v}</v></c>`;
+      else x+=`<c r="${ref}" t="inlineStr"><is><t xml:space="preserve">${xmlE(v)}</t></is></c>`;
+    });
+    x+='</row>';
+  });
+  return x+'</sheetData></worksheet>';
+}
+function xlsxBlob(sheets){
+  const enc=new TextEncoder(),H='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
+  const ct=H+'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'+sheets.map((_,i)=>`<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join("")+'<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>';
+  const rels=H+'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>';
+  const wb=H+'<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>'+sheets.map((sh,i)=>`<sheet name="${xmlE(sh.name)}" sheetId="${i+1}" r:id="rId${i+1}"/>`).join("")+'</sheets></workbook>';
+  const wbRels=H+'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+sheets.map((_,i)=>`<Relationship Id="rId${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i+1}.xml"/>`).join("")+`<Relationship Id="rId${sheets.length+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`;
+  const styles=H+'<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="1"><font><sz val="11"/><name val="Arial"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/></cellXfs></styleSheet>';
+  const files=[{name:"[Content_Types].xml",data:enc.encode(ct)},{name:"_rels/.rels",data:enc.encode(rels)},{name:"xl/workbook.xml",data:enc.encode(wb)},{name:"xl/_rels/workbook.xml.rels",data:enc.encode(wbRels)},{name:"xl/styles.xml",data:enc.encode(styles)},...sheets.map((sh,i)=>({name:`xl/worksheets/sheet${i+1}.xml`,data:enc.encode(sheetXml(sh.rows))}))];
+  return zipStore(files);
+}
+function buildSheets(){
+  const students=[["الاسم واللقب","رقم وليّ الأمر","تاريخ الميلاد","المستوى الدراسي","الرقم التسلسلي","أيام التسميع","آخر حفظ","نسبة التقدم %","نسبة الحضور %","عدد جلسات الحفظ"]];
+  db.students.forEach((s,i)=>{
+    const p=progInfo(s),{rate}=attStats(s.id),last=sortedLogs(s)[0];
+    students.push([s.name,s.phone||"",s.bd||"",s.lvl||"",s.serial||String(i+1),(s.days||[]).slice().sort().map(d=>WDN[d]).join("، "),last?range(last):"",p?p.pct:"",rate===null?"":rate,s.logs.length]);
+  });
+  const memo=[["التاريخ","الطالب","النوع","من","إلى","التقدير","ملاحظة"]];
+  const revs=[["التاريخ","الطالب","المقطع المُراجَع","التقدير"]];
+  const att=[["التاريخ","الطالب","الحالة","ملاحظة"]];
+  const exams=[["التاريخ","الطالب","الاختبار","الدرجة من 100","ملاحظة"]];
+  db.students.forEach(s=>{
+    [...s.logs].sort((a,b)=>a.date.localeCompare(b.date)).forEach(l=>{
+      memo.push([l.date,s.name,l.kind==="r"?"مراجعة":"حفظ جديد",`${SURAHS[l.fs]} ${l.fa}`,`${SURAHS[l.ts]} ${l.ta}`,l.grade,l.note||""]);
+      (l.revs||[]).forEach(v=>revs.push([v.date,s.name,shortR(l),v.grade]));
+    });
+    (s.exams||[]).forEach(e=>exams.push([e.date,s.name,e.title,e.score,e.note||""]));
+  });
+  for(const d of Object.keys(db.att).sort())for(const sid in db.att[d]){
+    const s=byId(sid);if(!s)continue;
+    att.push([d,s.name,ATX[db.att[d][sid]]||"",(db.an[d]||{})[sid]||""]);
+  }
+  return [{name:"الطلاب",rows:students},{name:"الحفظ",rows:memo},{name:"المراجعات",rows:revs},{name:"الحضور",rows:att},{name:"الاختبارات",rows:exams}];
+}
+function exportXlsx(){
+  if(!db.students.length){alert("لا توجد بيانات لتصديرها.");return}
+  const blob=xlsxBlob(buildSheets());
+  const u=URL.createObjectURL(blob),a=document.createElement("a");
+  a.href=u;a.download=`halaqa-${today()}.xlsx`;document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(u),3000);
+}
+const _bk=backupSheet;
+backupSheet=function(){
+  _bk();
+  const h=$("sheet").querySelector("h2"),b=document.createElement("div");
+  b.innerHTML='<div class="acts" style="margin:0 0 12px"><button class="btn sec2" data-act="xlsx">تصدير Excel (جدول كامل للتحليل أو للمدير)</button></div>';
+  if(h)h.after(b);
+};
+document.addEventListener("click",e=>{
+  const t=e.target.closest&&e.target.closest("[data-act='xlsx']");
+  if(t)exportXlsx();
 });
 
 if(!openReport())render();
