@@ -112,6 +112,7 @@ a.btn{display:grid;place-items:center;text-decoration:none}
 <style>#printArea{display:none}@media print{body>*:not(#printArea){display:none!important}#printArea{display:block}#printArea img{display:block;width:210mm;height:297mm;object-fit:contain;break-after:page;page-break-after:always}@page{size:A4;margin:0}}</style>
 <style>.wks{display:flex;gap:6px;overflow-x:auto;margin-bottom:10px;padding-bottom:4px}.wk{flex:0 0 auto;border:2px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:8px 11px;font:inherit;font-size:14px;cursor:pointer}.wk.on,.dchip.on{background:var(--pri);color:#fff;border-color:transparent;font-weight:700}.dchips{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}.dchip{border:2px solid var(--line);background:var(--bg);color:var(--ink);border-radius:10px;padding:9px 12px;font:inherit;font-size:14px;cursor:pointer}input[readonly]{opacity:.7}</style>
 <style>
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 html,body{max-width:100%;overflow-x:hidden}
 *,*::before,*::after{min-width:0}
 header{max-width:100%}
@@ -355,7 +356,7 @@ async function doImport(){
     const logs=(Array.isArray(s.logs)?s.logs:[]).filter(l=>l&&okN(l.fs)&&okN(l.ts)&&l.fs>=0&&l.fs<114&&l.ts>=0&&l.ts<114&&okN(l.fa)&&okN(l.ta)&&typeof l.date==="string"&&GRADES.includes(l.grade))
       .map(l=>({id:String(l.id||uid()),date:l.date,fs:l.fs,fa:l.fa,ts:l.ts,ta:l.ta,grade:l.grade,note:String(l.note||"").slice(0,200),kind:l.kind==="r"?"r":"n",revs:(Array.isArray(l.revs)?l.revs:[]).filter(v=>v&&typeof v.date==="string"&&GRADES.includes(v.grade)).map(v=>({id:String(v.id||uid()),date:v.date,grade:v.grade}))}));
     let cur=s.id?db.students.find(x=>x.id===String(s.id)):null;
-    if(!cur){cur={id:String(s.id||uid()),name:(s.name.trim()+(s.last?" "+String(s.last).trim():"")).slice(0,60),phone:String(s.phone||"").replace(/\D/g,""),next:String(s.next||"").slice(0,200),bd:/^\d{4}-\d{2}-\d{2}$/.test(s.bd||"")?s.bd:"",lvl:String(s.lvl||"").slice(0,40),serial:String(s.serial||"").slice(0,20),base:(s.base&&Number.isInteger(s.base.s)&&s.base.s>=0&&s.base.s<114&&Number.isInteger(s.base.a)&&s.base.a>=1&&s.base.a<=AYAHS[s.base.s])?{s:s.base.s,a:s.base.a}:undefined,photo:typeof s.photo==="string"&&s.photo.startsWith("data:image/")&&s.photo.length<300000?s.photo:undefined,days:Array.isArray(s.days)?s.days.filter(i=>Number.isInteger(i)&&i>=0&&i<=6):[],logs:[]};db.students.push(cur);addS++}
+    if(!cur){cur={id:String(s.id||uid()),name:(s.name.trim()+(s.last?" "+String(s.last).trim():"")).slice(0,60),phone:String(s.phone||"").replace(/\D/g,""),next:String(s.next||"").slice(0,200),bd:/^\d{4}-\d{2}-\d{2}$/.test(s.bd||"")?s.bd:"",lvl:String(s.lvl||"").slice(0,40),serial:String(s.serial||"").slice(0,20),base:(s.base&&Number.isInteger(s.base.s)&&s.base.s>=0&&s.base.s<114&&Number.isInteger(s.base.a)&&s.base.a>=1&&s.base.a<=AYAHS[s.base.s])?{s:s.base.s,a:s.base.a}:undefined,photo:typeof s.photo==="string"&&s.photo.startsWith("data:image/")&&s.photo.length<300000?s.photo:undefined,days:Array.isArray(s.days)?s.days.filter(i=>Number.isInteger(i)&&i>=0&&i<=6):[],absDays:Array.isArray(s.absDays)?s.absDays.filter(i=>Number.isInteger(i)&&i>=0&&i<=6):[],logs:[]};db.students.push(cur);addS++}
     if(!(cur.days&&cur.days.length)&&Array.isArray(s.days))cur.days=s.days.filter(i=>Number.isInteger(i)&&i>=0&&i<=6);
     if(Array.isArray(s.hd)){cur.hd=[...new Set([...(cur.hd||[]),...s.hd.filter(v=>typeof v==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(v))])]}
     if(Array.isArray(s.exams)){cur.exams=cur.exams||[];for(const e of s.exams){if(e&&typeof e.title==="string"&&typeof e.date==="string"&&Number.isFinite(+e.score)&&!cur.exams.some(y=>y.id===String(e.id)))cur.exams.push({id:String(e.id||uid()),date:e.date,title:e.title.slice(0,60),score:+e.score,note:String(e.note||"").slice(0,120)})}}
@@ -390,7 +391,7 @@ function revForm(l){
    <div class="acts"><button class="btn" data-act="saveRev" data-id="${l.id}">حفظ</button><button class="btn sec2" data-act="close">إلغاء</button></div>`);
 }
 const ST=[["p","حاضر"],["l","متأخر"],["e","بعذر"],["a","غائب"]];
-function absCount(sid){const f=new Date();f.setDate(f.getDate()-30);const from=f.toISOString().slice(0,10);let n=0;for(const d in db.att)if(d>=from&&db.att[d][sid]==="a")n++;return n}
+function absCount(sid){const f=new Date();f.setDate(f.getDate()-30);const from=f.toISOString().slice(0,10);let n=0;for(const d in db.att)if(d>=from&&db.att[d][sid]==="a"&&!isAbsAllowed(sid,d))n++;return n}
 function warnBadge(s){const n=absCount(s.id);const o=overdue(s).length;return (n>=db.limit?`<span class="badge gr4">غياب ${n}</span>`:"")+(o?`<span class="badge gr3">مراجعة ${o}</span>`:"")}
 function attStats(sid){const c={p:0,l:0,e:0,a:0};for(const d in db.att){const v=db.att[d][sid];if(v)c[v]++}const t=c.p+c.l+c.e+c.a;return{c,rate:t?Math.round((c.p+c.l)/t*100):null}}
 function attBlock(s){
@@ -1050,14 +1051,14 @@ document.addEventListener("click",e=>{
 document.addEventListener("click",e=>{
   const t=e.target.closest&&e.target.closest('[data-act="saveStudent"]');if(!t)return;
   const h=$("sheet").querySelector("h2");
-  pendSave={edit:!!(h&&h.textContent.includes("تعديل")),sid:view.sid,n:db.students.length,days:[...document.querySelectorAll("#sheet .dchip.on")].map(b=>+b.dataset.d)};
+  pendSave={edit:!!(h&&h.textContent.includes("تعديل")),sid:view.sid,n:db.students.length,days:[...document.querySelectorAll("#sheet .dchip.on")].map(b=>+b.dataset.d),absDays:[...document.querySelectorAll("#sheet .achip.on")].map(b=>+b.dataset.a)};
 },true);
 document.addEventListener("click",e=>{
   const t=e.target.closest&&e.target.closest('[data-act="saveStudent"]');if(!t||!pendSave)return;
   const p=pendSave;pendSave=null;
   if($("ov").classList.contains("on"))return;
   const s=p.edit?db.students.find(x=>x.id===p.sid):db.students[p.n];
-  if(s){s.days=p.days;save();render()}
+  if(s){s.days=p.days;s.absDays=p.absDays||[];save();render()}
 });
 
 // ===== تسجيل الحفظ: الآيات تلقائية =====
@@ -1471,6 +1472,62 @@ backupSheet=function(){
 document.addEventListener("click",e=>{
   const t=e.target.closest&&e.target.closest("[data-act='xlsx']");
   if(t)exportXlsx();
+});
+
+
+// ===== أيام الغياب المسموح بها + الصفحة الرئيسية =====
+function isAbsAllowed(sid,d){
+  const st=byId(sid);
+  if(!st||!(st.absDays||[]).length)return false;
+  return st.absDays.includes(new Date(d+"T00:00:00").getDay());
+}
+(()=>{const st=document.createElement("style");st.textContent=".achip{border:2px solid var(--line);background:var(--bg);color:var(--ink);border-radius:10px;padding:9px 12px;font:inherit;font-size:14px;cursor:pointer}.achip.on{background:#b9791c;color:#fff;border-color:transparent;font-weight:700}";document.head.appendChild(st)})();
+const _sf2=studentForm;
+studentForm=function(s){
+  _sf2(s);
+  const box=document.createElement("div");
+  box.innerHTML=`<label>أيام الغياب المسموح بها (لا تُحسب ضمن تنبيه الغياب)</label><div class="dchips">${WDN.map((n,i)=>`<button type="button" class="achip ${(s&&(s.absDays||[]).includes(i))?"on":""}" data-a="${i}">${n}</button>`).join("")}</div>`;
+  const er=$("er");er.parentNode.insertBefore(box,er);
+};
+document.addEventListener("click",e=>{
+  const b=e.target.closest&&e.target.closest(".achip");
+  if(b){b.classList.toggle("on");e.preventDefault()}
+},true);
+const _tb2=topBlock;
+topBlock=function(s){
+  const ad=(s.absDays||[]).slice().sort();
+  return (ad.length?`<div class="meta" style="margin:0 0 10px">أيام الغياب المسموح بها: ${ad.map(i=>WDN[i]).join("، ")}</div>`:"")+_tb2(s);
+};
+renderHome=function(){
+  const fab=$("fab");fab.textContent="+ إضافة طالب";fab.dataset.act="addStudent";fab.style.display="";
+  const hf=view.hf;
+  $("hd").innerHTML=`<h1>حلقة التحفيظ<span class="sub">${db.students.length} طالب</span></h1><button class="hbtn" data-act="backup">نسخ احتياطي</button>`;
+  const q=(view.q||"").trim();
+  const filt=[[undefined,"الكل"]].concat(WDN.map((n,i)=>[i,n]));
+  const strip=`<div class="wks">${filt.map(([v,t])=>`<button class="wk ${hf===v?"on":""}" data-act="hf" data-w="${v===undefined?"all":v}">${t}</button>`).join("")}</div>`;
+  const search=db.students.length>=3?`<input id="q" type="search" placeholder="بحث عن طالب" value="${esc(q)}" style="margin-bottom:10px">`:"";
+  let list=db.students.filter(s=>!q||s.name.includes(q));
+  if(hf!==undefined)list=list.filter(s=>(s.days||[]).includes(hf));
+  list.sort((a,b)=>a.name.localeCompare(b.name,"ar"));
+  const D=hf!==undefined?dayDate(hf):null;
+  const row=s=>{
+    const last=sortedLogs(s)[0];
+    const meta=D?(recordedOn(s,D)?"✓ سُجّل حفظ هذا اليوم":"لم يُسجَّل بعد"):(last?"آخر حفظ: "+range(last):"لم يبدأ الحفظ بعد");
+    const badge=D?(recordedOn(s,D)?`<span class="badge gr1">✓ تم</span>`:`<span class="badge" style="background:var(--pri)">سجّل</span>`):(last?`<span class="badge ${GCLS[last.grade]}">${last.grade}</span>`:"");
+    return `<div class="row" data-act="${D?"recFor":"open"}" data-id="${s.id}"><div class="av">${esc([...s.name][0]||"؟")}</div><div class="grow"><div class="name">${esc(s.name)}</div><div class="meta">${esc(meta)}</div><div class="meta">${esc(dayNames(s))}</div></div><div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">${badge}${warnBadge(s)}</div></div>`;
+  };
+  const head=D?`<div class="sec">${fmtDate(D)} (${list.length})</div>`:`<div class="sec">الطلاب (${list.length})</div>`;
+  $("app").innerHTML=remindBox()+strip+search
+    +(list.length?head+list.map(row).join(""):`<div class="empty"><b>${q?"لا نتائج":"لا يوجد طلاب في هذا اليوم"}</b>${q?"جرّب اسماً آخر.":(hf!==undefined?"حدّد أيام التسميع من بطاقة الطالب.":"اضغط «إضافة طالب» لتبدأ.")}</div>`)
+    +`<div class="acts" style="margin-top:14px"><button class="btn" data-act="sendAll">إرسال التقارير</button><button class="btn sec2" data-act="att">الحضور</button></div>`
+    +`<div class="acts" style="margin-top:8px"><button class="btn sec2" data-act="cardsAll">البطاقات</button><button class="btn sec2" data-act="group">نتائج الحلقة</button></div>`;
+};
+document.addEventListener("click",e=>{
+  const t=e.target.closest&&e.target.closest("[data-act='hf']");if(!t)return;
+  const w=t.dataset.w;
+  view.hf=w==="all"?undefined:+w;
+  if(view.hf!==undefined)view.wd=view.hf;
+  render();
 });
 
 if(!openReport())render();
