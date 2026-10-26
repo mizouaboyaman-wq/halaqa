@@ -358,6 +358,7 @@ async function doImport(){
     let cur=s.id?db.students.find(x=>x.id===String(s.id)):null;
     if(!cur){cur={id:String(s.id||uid()),name:(s.name.trim()+(s.last?" "+String(s.last).trim():"")).slice(0,60),phone:String(s.phone||"").replace(/\D/g,""),next:String(s.next||"").slice(0,200),bd:/^\d{4}-\d{2}-\d{2}$/.test(s.bd||"")?s.bd:"",lvl:String(s.lvl||"").slice(0,40),serial:String(s.serial||"").slice(0,20),base:(s.base&&Number.isInteger(s.base.s)&&s.base.s>=0&&s.base.s<114&&Number.isInteger(s.base.a)&&s.base.a>=1&&s.base.a<=AYAHS[s.base.s])?{s:s.base.s,a:s.base.a}:undefined,photo:typeof s.photo==="string"&&s.photo.startsWith("data:image/")&&s.photo.length<300000?s.photo:undefined,days:Array.isArray(s.days)?s.days.filter(i=>Number.isInteger(i)&&i>=0&&i<=6):[],absDays:Array.isArray(s.absDays)?s.absDays.filter(i=>Number.isInteger(i)&&i>=0&&i<=6):[],logs:[]};db.students.push(cur);addS++}
     if(!(cur.days&&cur.days.length)&&Array.isArray(s.days))cur.days=s.days.filter(i=>Number.isInteger(i)&&i>=0&&i<=6);
+    if(Array.isArray(s.notes)){cur.notes=cur.notes||[];for(const n of s.notes){if(n&&typeof n.text==="string"&&typeof n.date==="string"&&!cur.notes.some(y=>y.id===String(n.id)))cur.notes.push({id:String(n.id||uid()),date:n.date,text:String(n.text).slice(0,500)})}}
     if(Array.isArray(s.hd)){cur.hd=[...new Set([...(cur.hd||[]),...s.hd.filter(v=>typeof v==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(v))])]}
     if(Array.isArray(s.exams)){cur.exams=cur.exams||[];for(const e of s.exams){if(e&&typeof e.title==="string"&&typeof e.date==="string"&&Number.isFinite(+e.score)&&!cur.exams.some(y=>y.id===String(e.id)))cur.exams.push({id:String(e.id||uid()),date:e.date,title:e.title.slice(0,60),score:+e.score,note:String(e.note||"").slice(0,120)})}}
     for(const l of logs){const ex=cur.logs.find(x=>x.id===l.id);if(!ex){cur.logs.push(l);addL++}else{ex.revs=ex.revs||[];for(const v of l.revs)if(!ex.revs.some(y=>y.id===v.id))ex.revs.push(v)}}
@@ -1250,7 +1251,7 @@ async function reportPages(s,days){
   const c={p:0,l:0,e:0,a:0};
   for(const d in db.att)if(d>=from&&d<=to&&db.att[d][s.id])c[db.att[d][s.id]]++;
   const tot=c.p+c.l+c.e+c.a,rate=tot?Math.round((c.p+c.l)/tot*100):null;
-  const memo=s.logs.filter(l=>l.kind!=="r"&&l.date>=from&&l.date<=to).sort((a,b)=>a.date.localeCompare(b.date));
+  const memo=s.logs.filter(l=>l.date>=from&&l.date<=to).sort((a,b)=>a.date.localeCompare(b.date));
   const rv=[];s.logs.forEach(l=>(l.revs||[]).forEach(v=>{if(v.date>=from&&v.date<=to)rv.push({date:v.date,text:shortR(l),grade:v.grade})}));
   rv.sort((a,b)=>a.date.localeCompare(b.date));
   const ex=(s.exams||[]).filter(e=>e.date>=from&&e.date<=to).sort((a,b)=>a.date.localeCompare(b.date));
@@ -1272,7 +1273,7 @@ async function reportPages(s,days){
       T([...s.name][0]||"؟",120,150,70,"700",PRI,"center");
       y=310;
       const avgE=ex.length?Math.round(ex.reduce((n,e)=>n+e.score,0)/ex.length):null;
-      const tiles=[[rate===null?"—":rate+"%","نسبة الحضور",rate===null?MUTE:rate>=80?"#1b7f4f":rate>=60?"#b9791c":"#b23a3a"],[memo.length,"جلسات الحفظ",PRI],[rv.length,"مراجعات",PRI],[avgE===null?"—":avgE,"متوسط الاختبارات",PRI]];
+      const tiles=[[rate===null?"—":rate+"%","نسبة الحضور",rate===null?MUTE:rate>=80?"#1b7f4f":rate>=60?"#b9791c":"#b23a3a"],[memo.filter(l=>l.kind!=="r").length,"جلسات الحفظ",PRI],[rv.length,"مراجعات",PRI],[avgE===null?"—":avgE,"متوسط الاختبارات",PRI]];
       const tw=(W-120-60)/4;
       tiles.forEach((t,i)=>{const tx=60+i*(tw+20);R(tx,y,tw,160,22,BG);T(String(t[0]),tx+tw/2,y+85,56,"700",t[2],"center");T(t[1],tx+tw/2,y+134,26,"400",MUTE,"center")});
       y+=200;
@@ -1298,16 +1299,20 @@ async function reportPages(s,days){
   const sec=title=>{ensure(90);T(title,W-60,y+34,38,"700",PRI);R(60,y+52,W-120,3,1,LINE);y+=80};
   const empty=t=>{ensure(70);T(t,W-60,y+36,30,"400",MUTE);y+=70};
   newPage(true);
+  const wrapT=(t,maxW,z)=>{x.font=F("400",z);const out=[];String(t).split("\n").forEach(par=>{let cur="";for(const w of par.split(" ")){const tryS=cur?cur+" "+w:w;if(x.measureText(tryS).width>maxW&&cur){out.push(cur);cur=w}else cur=tryS}out.push(cur)});return out};
   sec("الحفظ");
   if(!memo.length)empty("لا يوجد حفظ في هذه الفترة");
   memo.forEach(l=>{
-    ensure(130);
-    R(40,y,W-80,110,20,BG);
+    const isR=l.kind==="r";
+    const nl=l.note?wrapT(l.note,W-420,22):[];
+    const h=110+nl.length*28;
+    ensure(h+20);
+    R(40,y,W-80,h,20,BG);
     T(sd(l.date),W-70,y+40,24,"400",MUTE);
-    T(shortR(l),W-70,y+78,30,"700",INK,"right",W-400);
-    if(l.note)T(l.note,W-70,y+102,22,"400",MUTE,"right",W-400);
+    T((isR?"مراجعة: ":"")+shortR(l),W-70,y+78,30,"700",INK,"right",W-420);
+    nl.forEach((ln,i)=>T(ln,W-70,y+78+(i+1)*28,22,"400",MUTE,"right"));
     badge(l.grade,240,y+55,GC[l.grade]||MUTE);
-    y+=130;
+    y+=h+20;
   });
   sec("المراجعة");
   if(!rv.length)empty("لا توجد مراجعات في هذه الفترة");
@@ -1329,6 +1334,16 @@ async function reportPages(s,days){
     badge(`${e.score}/100`,240,y+40,exCls(e.score));
     y+=90;
   });
+  const gn=(s.notes||[]).filter(n=>n.date>=from&&n.date<=to).sort((a,b)=>a.date.localeCompare(b.date));
+  if(gn.length){
+    sec("ملاحظات عامة");
+    gn.forEach(n=>{const ls=wrapT(n.text,W-200,26),h=60+ls.length*34;ensure(h+12);R(40,y,W-80,h,18,BG);T(sd(n.date),W-70,y+40,24,"400",MUTE);ls.forEach((ln,i)=>T(ln,W-70,y+40+(i+1)*34,26,"400",INK,"right"));y+=h+12});
+  }
+  const ann=[];for(const d of Object.keys(db.an).sort()){if(d<from||d>to)continue;const tx=(db.an[d]||{})[s.id];if(tx)ann.push([d,tx])}
+  if(ann.length){
+    sec("ملاحظات الحضور");
+    ann.forEach(([d,tx])=>{const ls=wrapT(tx,W-420,26),h=60+ls.length*34;ensure(h+12);R(40,y,W-80,h,18,BG);T(sd(d),W-70,y+40,24,"400",MUTE);ls.forEach((ln,i)=>T(ln,W-70,y+40+(i+1)*34,26,"400",INK,"right"));y+=h+12});
+  }
   if(s.next){
     ensure(170);
     R(40,y+10,W-80,130,22,"#fbf3e4");
@@ -1528,6 +1543,82 @@ document.addEventListener("click",e=>{
   view.hf=w==="all"?undefined:+w;
   if(view.hf!==undefined)view.wd=view.hf;
   render();
+});
+
+
+// ===== إرسال التقرير: تنزيل الصورة + فتح محادثة الوليّ مباشرة =====
+function sendSheet(s,days){
+  const msg=`تقرير ${s.name} — ${db.hname}\n${repSummary(s,days)}`;
+  openSheet(`<h2>إرسال تقرير ${esc(s.name)}</h2>
+   <div class="note">تم تنزيل صورة التقرير إلى هاتفك. الآن:</div>
+   <div class="note" style="color:var(--ink);line-height:2">
+     ١. اضغط «فتح محادثة الوليّ» أدناه.<br>
+     ٢. في واتساب اضغط علامة المشبك 📎 ثم «المعرض».<br>
+     ٣. اختر صورة التقرير من التنزيلات، ثم اضغط إرسال.</div>
+   <div class="acts"><a class="btn" target="_blank" rel="noopener" href="https://wa.me/${s.phone}?text=${encodeURIComponent(msg)}">فتح محادثة الوليّ</a></div>
+   <div class="acts" style="margin-top:10px"><button class="btn sec2" data-act="sendDone" data-id="${s.id}" data-d="${days}">تم الإرسال</button><button class="btn sec2" data-act="close">إغلاق</button></div>`);
+}
+document.addEventListener("click",async e=>{
+  const t=e.target.closest&&e.target.closest("[data-act='sendImg']");if(!t||t.disabled)return;
+  e.stopImmediatePropagation();
+  const s=byId(t.dataset.id);if(!s)return;
+  const days=view.sendDays??7;
+  const label=t.textContent;t.disabled=true;t.textContent="جارٍ التجهيز…";
+  try{
+    const pages=await reportPages(s,days);
+    const blobs=await Promise.all(pages.map(c=>new Promise(r=>c.toBlob(r,"image/png"))));
+    blobs.forEach((b,i)=>{
+      const u=URL.createObjectURL(b),a=document.createElement("a");
+      a.href=u;a.download=`report-${s.name}-${i+1}.png`;
+      document.body.appendChild(a);a.click();a.remove();
+      setTimeout(()=>URL.revokeObjectURL(u),5000);
+    });
+  }catch(err){alert("تعذّر تجهيز الصورة.")}
+  t.disabled=false;t.textContent=label;
+  sendSheet(s,days);
+},true);
+document.addEventListener("click",e=>{
+  const t=e.target.closest&&e.target.closest("[data-act='sendDone']");if(!t)return;
+  const s=byId(t.dataset.id);if(!s)return;
+  const days=+t.dataset.d;
+  db.sent=db.sent||{};db.sent[`${today()}:${days}:${s.id}`]=true;save();
+  closeSheet();renderSend();
+});
+
+
+// ===== ملاحظات عامة على الطالب =====
+function notesBlock(s){
+  const ns=[...(s.notes||[])].sort((a,b)=>b.date.localeCompare(a.date));
+  return `<div class="sec" style="display:flex;justify-content:space-between;align-items:center"><span>ملاحظات عامة (${ns.length})</span><button class="lnk" data-act="addNote">+ إضافة ملاحظة</button></div>`
+   +(ns.length?ns.map(n=>`<div class="log"><div class="top"><span class="meta">${fmtDate(n.date)}</span></div><div class="rng" style="font-weight:400;white-space:pre-wrap">${esc(n.text)}</div><div class="lbtns"><button class="lnk" data-act="editNote" data-id="${n.id}">تعديل</button><button class="lnk del" data-act="delNote" data-id="${n.id}">حذف</button></div></div>`).join("")
+     :`<div class="meta" style="margin:0 2px 14px">لا توجد ملاحظات عامة.</div>`);
+}
+function noteForm(n){
+  const x=n||{date:today(),text:""};
+  openSheet(`<h2>${n?"تعديل ملاحظة":"ملاحظة عامة"}</h2>
+   <label for="nd">التاريخ</label><input id="nd" type="date" value="${x.date}">
+   <label for="nt">الملاحظة</label><textarea id="nt" maxlength="500" style="direction:rtl;min-height:120px">${esc(x.text)}</textarea>
+   <div class="err" id="er"></div>
+   <div class="acts"><button class="btn" data-act="saveNote" data-id="${n?n.id:""}">حفظ</button><button class="btn sec2" data-act="close">إلغاء</button></div>`);
+}
+const _tb3=topBlock;
+topBlock=function(s){return _tb3(s)+notesBlock(s)};
+document.addEventListener("click",e=>{
+  const t=e.target.closest&&e.target.closest("[data-act='addNote'],[data-act='editNote'],[data-act='delNote'],[data-act='saveNote']");if(!t)return;
+  const a=t.dataset.act,s=student();if(!s)return;
+  if(a==="addNote")noteForm();
+  else if(a==="editNote")noteForm((s.notes||[]).find(n=>n.id===t.dataset.id));
+  else if(a==="delNote"){if(confirm("حذف هذه الملاحظة؟")){s.notes=(s.notes||[]).filter(n=>n.id!==t.dataset.id);save();render()}}
+  else if(a==="saveNote"){
+    const date=$("nd").value,text=$("nt").value.trim();
+    if(!date)return $("er").textContent="اختر التاريخ.";
+    if(!text)return $("er").textContent="اكتب نص الملاحظة.";
+    s.notes=s.notes||[];
+    const id=t.dataset.id;
+    if(id)Object.assign(s.notes.find(n=>n.id===id),{date,text});
+    else s.notes.push({id:uid(),date,text});
+    save();closeSheet();render();
+  }
 });
 
 if(!openReport())render();
