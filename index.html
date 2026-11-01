@@ -1529,7 +1529,7 @@ renderHome=function(){
     const last=sortedLogs(s)[0];
     const meta=D?(recordedOn(s,D)?"✓ سُجّل حفظ هذا اليوم":"لم يُسجَّل بعد"):(last?"آخر حفظ: "+range(last):"لم يبدأ الحفظ بعد");
     const badge=D?(recordedOn(s,D)?`<span class="badge gr1">✓ تم</span>`:`<span class="badge" style="background:var(--pri)">سجّل</span>`):(last?`<span class="badge ${GCLS[last.grade]}">${last.grade}</span>`:"");
-    return `<div class="row" data-act="${D?"recFor":"open"}" data-id="${s.id}"><div class="av">${esc([...s.name][0]||"؟")}</div><div class="grow"><div class="name">${esc(s.name)}</div><div class="meta">${esc(meta)}</div><div class="meta">${esc(dayNames(s))}</div></div><div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">${badge}${warnBadge(s)}</div></div>`;
+    return `<div class="row" data-act="open" data-id="${s.id}"${D?` data-d="${D}"`:""}><div class="av">${esc([...s.name][0]||"؟")}</div><div class="grow"><div class="name">${esc(s.name)}</div><div class="meta">${esc(meta)}</div><div class="meta">${esc(dayNames(s))}</div></div><div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">${badge}${warnBadge(s)}</div></div>`;
   };
   const head=D?`<div class="sec">${fmtDate(D)} (${list.length})</div>`:`<div class="sec">الطلاب (${list.length})</div>`;
   $("app").innerHTML=remindBox()+strip+search
@@ -1619,6 +1619,13 @@ document.addEventListener("click",e=>{
     else s.notes.push({id:uid(),date,text});
     save();closeSheet();render();
   }
+});
+
+
+// ===== فتح صفحة الطالب من قائمة اليوم =====
+document.addEventListener("click",e=>{
+  const t=e.target.closest&&e.target.closest("[data-act='open'][data-d]");
+  if(t)view.wdDate=t.dataset.d;
 });
 
 if(!openReport())render();
